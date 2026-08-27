@@ -1,0 +1,22 @@
+# Python environments and generated caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Generated outputs and local QA artifacts
+outputs/
+.artifact_qa/
+
+# Local or internal reference workbooks
+관리_표준물질 관리 양식.xlsx
+Micro_CrossCheck_AI_Distribution_Banks_v2.xlsx
+
+# Local Streamlit secrets (never publish)
+.streamlit/secrets.toml
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

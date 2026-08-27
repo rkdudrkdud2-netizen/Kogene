@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from io import BytesIO
 import re
 
@@ -154,9 +155,39 @@ def _format_worklist(sheet):
             row[check_index].font = Font(name=FONT_NAME, size=9, bold=True, color="9A3412")
 
 
+def _build_summary_counts(results, worklist_records):
+    """수식 계산 엔진이 없는 뷰어에서도 보이도록 요약 숫자를 미리 계산한다."""
+    validation_counts = Counter(str(item.get("검증 구분", "")) for item in results)
+    priority_counts = Counter(
+        (str(item.get("검증 구분", "")), str(item.get("우선순위", "")))
+        for item in results
+    )
+    readiness_counts = Counter(str(row.get("준비 상태", "")) for row in worklist_records)
+    return {
+        "cards": {
+            "전체 후보": len(results),
+            "포괄성": validation_counts["포괄성"],
+            "특이도": validation_counts["특이도"],
+            "보유 후보": sum(str(item.get("보유 여부", "")) == "보유" for item in results),
+        },
+        "priorities": {
+            priority: {
+                "포괄성": priority_counts[("포괄성", priority)],
+                "특이도": priority_counts[("특이도", priority)],
+            }
+            for priority in ("필수", "권장", "참고")
+        },
+        "readiness": {
+            "즉시 사용 가능": readiness_counts["즉시 사용 가능"],
+            "원액·희석 준비": readiness_counts["희석 필요"] + readiness_counts["원액 사용 가능"],
+            "소진·미보유": readiness_counts["소진"] + readiness_counts["미보유"],
+            "정보·재고 확인": readiness_counts["정보 확인 필요"],
+        },
+    }
+
+
 def _add_summary_sheet(
-    workbook, *, assay_type, target, candidate_last_row, worklist_last_row,
-    readiness_column,
+    workbook, *, assay_type, target, summary_counts,
 ):
     sheet = workbook.create_sheet("요약", 0)
     sheet.sheet_view.showGridLines = False
@@ -193,17 +224,18 @@ def _add_summary_sheet(
         sheet[f"B{row_index}"].alignment = Alignment(horizontal="left", vertical="center")
 
     cards = (
-        ("A7:B7", "A8:B9", "전체 후보", f"=COUNTA('후보_전체'!$A$2:$A${candidate_last_row})", NAVY),
-        ("C7:D7", "C8:D9", "포괄성", f'=COUNTIF(\'후보_전체\'!$B$2:$B${candidate_last_row},"포괄성")', TEAL),
-        ("E7:F7", "E8:F9", "특이도", f'=COUNTIF(\'후보_전체\'!$B$2:$B${candidate_last_row},"특이도")', "155E75"),
-        ("G7:H7", "G8:H9", "보유 후보", f'=COUNTIF(\'후보_전체\'!$G$2:$G${candidate_last_row},"보유")', "0E7490"),
+        ("A7:B7", "A8:B9", "전체 후보", summary_counts["cards"]["전체 후보"], NAVY),
+        ("C7:D7", "C8:D9", "포괄성", summary_counts["cards"]["포괄성"], TEAL),
+        ("E7:F7", "E8:F9", "특이도", summary_counts["cards"]["특이도"], "155E75"),
+        ("G7:H7", "G8:H9", "보유 후보", summary_counts["cards"]["보유 후보"], "0E7490"),
     )
-    for label_range, value_range, label, formula, color in cards:
+    for label_range, value_range, label, value, color in cards:
         label_cell, value_cell = sheet[label_range.split(":")[0]], sheet[value_range.split(":")[0]]
         label_cell.value = label
         label_cell.font = Font(name=FONT_NAME, size=9, bold=True, color=WHITE)
         label_cell.alignment = Alignment(horizontal="center", vertical="center")
-        value_cell.value = formula
+        value_cell.value = value
+        value_cell.number_format = "#,##0"
         value_cell.font = Font(name=FONT_NAME, size=19, bold=True, color=color)
         value_cell.alignment = Alignment(horizontal="center", vertical="center")
         for row in sheet[label_range]:
@@ -228,9 +260,13 @@ def _add_summary_sheet(
         (("필수", TEAL_SOFT, "115E59"), ("권장", AMBER_SOFT, "92400E"), ("참고", SLATE_SOFT, "475569")), start=13,
     ):
         sheet.cell(row_index, 1, priority)
-        sheet.cell(row_index, 2, f'=COUNTIFS(\'후보_전체\'!$B$2:$B${candidate_last_row},"포괄성",\'후보_전체\'!$C$2:$C${candidate_last_row},$A{row_index})')
-        sheet.cell(row_index, 3, f'=COUNTIFS(\'후보_전체\'!$B$2:$B${candidate_last_row},"특이도",\'후보_전체\'!$C$2:$C${candidate_last_row},$A{row_index})')
-        sheet.cell(row_index, 4, f"=SUM(B{row_index}:C{row_index})")
+        inclusivity_count = summary_counts["priorities"][priority]["포괄성"]
+        specificity_count = summary_counts["priorities"][priority]["특이도"]
+        sheet.cell(row_index, 2, inclusivity_count)
+        sheet.cell(row_index, 3, specificity_count)
+        sheet.cell(row_index, 4, inclusivity_count + specificity_count)
+        for column_index in range(2, 5):
+            sheet.cell(row_index, column_index).number_format = "#,##0"
         for cell in sheet[row_index][0:4]:
             cell.font = Font(name=FONT_NAME, size=9, bold=cell.column == 1, color=color if cell.column == 1 else TEXT)
             cell.fill = PatternFill("solid", fgColor=fill if cell.column == 1 else WHITE)
@@ -238,14 +274,15 @@ def _add_summary_sheet(
             cell.border = Border(bottom=Side(style="thin", color=LINE))
 
     readiness = (
-        ("즉시 사용 가능", "DCFCE7", f'=COUNTIF(\'시험_작업목록\'!${readiness_column}$2:${readiness_column}${worklist_last_row},"즉시 사용 가능")'),
-        ("원액·희석 준비", AMBER_SOFT, f'=COUNTIF(\'시험_작업목록\'!${readiness_column}$2:${readiness_column}${worklist_last_row},"희석 필요")+COUNTIF(\'시험_작업목록\'!${readiness_column}$2:${readiness_column}${worklist_last_row},"원액 사용 가능")'),
-        ("소진·미보유", "FEE2E2", f'=COUNTIF(\'시험_작업목록\'!${readiness_column}$2:${readiness_column}${worklist_last_row},"소진")+COUNTIF(\'시험_작업목록\'!${readiness_column}$2:${readiness_column}${worklist_last_row},"미보유")'),
-        ("정보·재고 확인", "FFEDD5", f'=COUNTIF(\'시험_작업목록\'!${readiness_column}$2:${readiness_column}${worklist_last_row},"정보 확인 필요")'),
+        ("즉시 사용 가능", "DCFCE7", summary_counts["readiness"]["즉시 사용 가능"]),
+        ("원액·희석 준비", AMBER_SOFT, summary_counts["readiness"]["원액·희석 준비"]),
+        ("소진·미보유", "FEE2E2", summary_counts["readiness"]["소진·미보유"]),
+        ("정보·재고 확인", "FFEDD5", summary_counts["readiness"]["정보·재고 확인"]),
     )
-    for row_index, (status, fill, formula) in enumerate(readiness, start=13):
+    for row_index, (status, fill, count) in enumerate(readiness, start=13):
         sheet.cell(row_index, 6, status)
-        sheet.cell(row_index, 7, formula)
+        sheet.cell(row_index, 7, count)
+        sheet.cell(row_index, 7).number_format = "#,##0"
         sheet.cell(row_index, 8, "●")
         for cell in sheet[row_index][5:8]:
             cell.font = Font(name=FONT_NAME, size=9, bold=cell.column == 8, color=TEXT)
@@ -292,8 +329,6 @@ def build_excel_download(results, assay_type: str = "", target: str = "") -> byt
         worklist_sheet = writer.book["시험_작업목록"]
         _style_sheet(worklist_sheet, WORKLIST_WIDTHS, freeze="G2")
         _format_worklist(worklist_sheet)
-        worklist_headers = {cell.value: cell.column for cell in worklist_sheet[1] if cell.value}
-        readiness_column = get_column_letter(worklist_headers["준비 상태"])
 
         all_records = [
             {heading: excel_safe_value(item.get(key, "")) for key, heading in REPORT_COLUMNS.items()} for item in results
@@ -349,8 +384,7 @@ def build_excel_download(results, assay_type: str = "", target: str = "") -> byt
 
         _add_summary_sheet(
             writer.book, assay_type=assay_type, target=target,
-            candidate_last_row=max(2, all_sheet.max_row), worklist_last_row=max(2, worklist_sheet.max_row),
-            readiness_column=readiness_column,
+            summary_counts=_build_summary_counts(results, worklist_records),
         )
         writer.book.calculation.calcMode = "auto"
         writer.book.calculation.fullCalcOnLoad = True

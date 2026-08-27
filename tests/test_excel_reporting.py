@@ -40,7 +40,10 @@ def test_excel_report_has_readable_alignment_borders_and_dimensions():
 
     summary = workbook["요약"]
     assert summary["A1"].value == "qPCR CrossCheck · Validation Report"
-    assert summary["A8"].value.startswith("=COUNTA(")
+    assert summary["A8"].value == len(results)
+    assert summary["C8"].value == 1
+    assert summary["E8"].value == len(REPORT_GROUPS)
+    assert summary["G8"].value == len(results)
     assert "in-silico" in summary["B21"].value
     assert summary.sheet_view.showGridLines is False
 
@@ -55,7 +58,11 @@ def test_excel_report_has_readable_alignment_borders_and_dimensions():
     assert worklist["F2"].value == "필수"
     assert worklist["S2"].fill.fgColor.rgb.endswith("FEE2E2")
     assert worklist.freeze_panes == "G2"
-    assert "$S$2:$S$" in summary["G13"].value
+    assert summary["B13"].value == 1
+    assert summary["C13"].value == len(REPORT_GROUPS)
+    assert summary["D13"].value == len(results)
+    assert summary["G13"].value == 0
+    assert summary["G15"].value == len(results)
     assert worklist.page_setup.orientation == "landscape"
     assert worklist.sheet_view.showGridLines is False
     assert len(worklist.tables) == 0
@@ -86,6 +93,21 @@ def test_excel_report_has_readable_alignment_borders_and_dimensions():
 
     with ZipFile(BytesIO(report_bytes)) as archive:
         assert not any(name.startswith("xl/tables/") for name in archive.namelist())
+
+
+def test_excel_summary_values_are_saved_for_viewers_without_formula_recalculation():
+    results = [_result(), _result(validation="포괄성")]
+    workbook = load_workbook(BytesIO(build_excel_download(results)), data_only=True)
+    summary = workbook["요약"]
+
+    assert summary["A8"].value == 2
+    assert summary["C8"].value == 1
+    assert summary["E8"].value == 1
+    assert summary["G8"].value == 2
+    assert [summary.cell(row, 2).value for row in range(13, 16)] == [1, 0, 0]
+    assert [summary.cell(row, 3).value for row in range(13, 16)] == [1, 0, 0]
+    assert [summary.cell(row, 4).value for row in range(13, 16)] == [2, 0, 0]
+    assert [summary.cell(row, 7).value for row in range(13, 17)] == [0, 0, 2, 0]
 
 
 def test_excel_report_adds_sheet_for_dynamically_inferred_pathogen_group():

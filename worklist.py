@@ -76,6 +76,8 @@ def build_worklist_rows(results, assay_type: str, target: str) -> list[dict]:
             rows.append({
                 "qPCR 구성": assay_type,
                 "입력 표적": target_label,
+                "질환군": item.get("system", "기타"),
+                "병원체 유형": item.get("kind", "미분류"),
                 "검증 구분": item.get("검증 구분", "특이도"),
                 "우선순위": item.get("우선순위", "참고"),
                 "추천 미생물": item["organism"],
@@ -102,6 +104,8 @@ def build_worklist_rows(results, assay_type: str, target: str) -> list[dict]:
             rows.append({
                 "qPCR 구성": assay_type,
                 "입력 표적": target_label,
+                "질환군": item.get("system", "기타"),
+                "병원체 유형": item.get("kind", "미분류"),
                 "검증 구분": item.get("검증 구분", "특이도"),
                 "우선순위": item.get("우선순위", "참고"),
                 "추천 미생물": item["organism"],

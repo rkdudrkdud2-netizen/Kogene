@@ -2,6 +2,8 @@ import pandas as pd
 
 from cross_reactivity_data import select_cross_reactivity_rows_for_targets
 from specificity_engine import (
+    SYSTEM_PRIORITY,
+    SYSTEM_RULES,
     assign_specificity_metadata,
     augment_rows_from_inventory,
     build_inclusivity_rows,
@@ -114,6 +116,18 @@ def test_kind_system_and_related_group_classification():
     assert {"중추신경계", "발열·매개체"}.issubset(infer_systems("Japanese encephalitis virus"))
     assert related_group("Dengue virus type 3") == "flavivirus"
     assert related_group("Mycobacterium tuberculosis") == "mycobacterium"
+
+
+def test_every_declared_system_has_a_selection_priority():
+    assert set(SYSTEM_RULES).issubset(SYSTEM_PRIORITY)
+
+
+def test_inclusivity_supports_skin_and_animal_only_systems_without_crashing():
+    skin = build_inclusivity_rows(["Cutibacterium acnes"], None)
+    animal = build_inclusivity_rows(["Porcine circovirus 2"], None)
+
+    assert skin[0]["system"] == "피부·점막"
+    assert animal[0]["system"] == "동물 호흡기·전신"
 
 
 def test_inclusivity_contains_target_strains_but_not_other_species():

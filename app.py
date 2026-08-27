@@ -368,7 +368,7 @@ st.info("포괄성 목록은 타겟 자체와 동일 종·strain·형을, 특이
 worklist_rows = worklist.build_worklist_rows(results, assay_type, target)
 st.markdown('<div class="section-label">LAB WORKLIST</div>', unsafe_allow_html=True)
 st.subheader(f"{assay_type} 시험 작업 목록")
-st.caption("포괄성·특이도 후보에 매칭된 모든 관리번호를 표시합니다. 검증 구분과 시험 우선순위를 유지하며 원액은 µL, 희석액은 튜브 수(n)로 통일합니다.")
+st.caption("포괄성·특이도 후보의 질환군·병원체 유형과 매칭된 모든 관리번호를 표시합니다. 검증 구분과 시험 우선순위를 유지하며 원액은 µL, 희석액은 튜브 수(n)로 통일합니다.")
 show_reference_worklist = st.toggle("작업목록에 참고 후보 포함", value=False, key="show_reference_worklist")
 visible_worklist_rows = [
     row for row in worklist_rows if show_reference_worklist or row.get("우선순위") != "참고"
@@ -394,6 +394,8 @@ st.dataframe(
     column_config={
         "qPCR 구성": st.column_config.TextColumn(width="small"),
         "입력 표적": st.column_config.TextColumn(width="medium"),
+        "질환군": st.column_config.TextColumn(width="small"),
+        "병원체 유형": st.column_config.TextColumn(width="small"),
         "검증 구분": st.column_config.TextColumn(width="small"),
         "우선순위": st.column_config.TextColumn(width="small"),
         "추천 미생물": st.column_config.TextColumn(width="medium"),

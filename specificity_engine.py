@@ -98,7 +98,10 @@ KIND_TERMS = {
 }
 
 SCOPE_PRIORITY = {"재고 기반 근연 후보": 4, "재고 기반 증후군 후보": 2}
-SYSTEM_PRIORITY = ("장관계", "호흡기계", "혈액매개", "중추신경계", "발열·매개체", "비뇨생식기계", "혈류·상처", "기타")
+# 분류 규칙의 선언 순서를 그대로 우선순위로 사용한다. 새 분류를
+# SYSTEM_RULES에 추가했는데 이 목록에서 빠뜨려 StopIteration이 발생하는
+# 상황을 구조적으로 방지한다.
+SYSTEM_PRIORITY = (*SYSTEM_RULES, "기타")
 OUTPUT_SCOPE_PRIORITY = {
     "표적 직접 연관": 0,
     "직접 검색": 1,
@@ -135,6 +138,11 @@ def infer_systems(name: str) -> set[str]:
         system for system, terms in SYSTEM_RULES.items()
         if any(_contains_term(text, term) for term in terms)
     }
+
+
+def _primary_system(systems: set[str]) -> str:
+    """여러 분류 중 대표 분류를 고르며 알 수 없는 값에도 안전하게 대응한다."""
+    return next((value for value in SYSTEM_PRIORITY if value in systems), "기타")
 
 
 def related_group(name: str) -> str:
@@ -232,7 +240,7 @@ def augment_rows_from_inventory(rows: list[dict], target_queries, inventory: pd.
                 relation = "동일 증후군 감별 병원체"
                 basis = "검색 병원체와 임상 증후군·검체 범주가 겹치는 사내 자원"
             possible_systems = shared_systems or target_systems or candidate_systems or {"기타"}
-            system = next(value for value in SYSTEM_PRIORITY if value in possible_systems)
+            system = _primary_system(possible_systems)
             if identity in existing:
                 existing_item = output_by_identity[identity]
                 if existing_item.get("scope") in SCOPE_PRIORITY:
@@ -348,7 +356,7 @@ def build_inclusivity_rows(target_queries, inventory: pd.DataFrame | None) -> li
                 basis = "보유 자원이 없어도 포괄성 시험 설계에서 확인해야 하는 검색 타겟"
                 priority = "권장"
             systems = infer_systems(canonical) or infer_systems(display) or {"기타"}
-            system = next(value for value in SYSTEM_PRIORITY if value in systems)
+            system = _primary_system(systems)
             output.append({
                 "system": system,
                 "kind": infer_kind(display),

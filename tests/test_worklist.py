@@ -49,11 +49,32 @@ def test_all_matching_resources_are_expanded_without_priority_selection():
     second = _match(inventory_id="Z002", dilution_tubes="소진")
     results = [{
         "organism": "Escherichia coli", "relation": "근연종", "scope": "표적 직접 연관",
+        "system": "장관계", "kind": "세균",
         "매칭 점수": 100.0, "자원 상세": [first, second],
     }]
     rows = build_worklist_rows(results, "Multiplex qPCR", "stx1 + stx2")
     assert [row["관리번호"] for row in rows] == ["Z001", "Z002"]
     assert all(row["qPCR 구성"] == "Multiplex qPCR" for row in rows)
+    assert all(row["질환군"] == "장관계" and row["병원체 유형"] == "세균" for row in rows)
+
+
+def test_worklist_preserves_every_dynamic_system_and_pathogen_kind():
+    results = [
+        {
+            "organism": "Cutibacterium acnes", "relation": "직접 검색", "scope": "사용자 입력",
+            "system": "피부·점막", "kind": "세균", "매칭 점수": 0.0, "자원 상세": [],
+        },
+        {
+            "organism": "Porcine circovirus 2", "relation": "직접 검색", "scope": "사용자 입력",
+            "system": "동물 호흡기·전신", "kind": "바이러스", "매칭 점수": 0.0, "자원 상세": [],
+        },
+    ]
+
+    rows = build_worklist_rows(results, "Multiplex qPCR", "custom targets")
+
+    assert [(row["질환군"], row["병원체 유형"]) for row in rows] == [
+        ("피부·점막", "세균"), ("동물 호흡기·전신", "바이러스"),
+    ]
 
 
 def test_inventory_reader_retains_worklist_resource_fields():

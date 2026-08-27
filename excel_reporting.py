@@ -36,7 +36,7 @@ TEAL_SOFT, AMBER_SOFT, SLATE_SOFT = "CCFBF1", "FEF3C7", "F1F5F9"
 TEXT, MUTED, LINE, WHITE = "172033", "64748B", "DCE3EC", "FFFFFF"
 
 COLUMN_WIDTHS = (30, 14, 12, 20, 18, 52, 12, 14, 30, 14, 44, 24, 16, 18)
-WORKLIST_WIDTHS = (16, 28, 14, 12, 30, 20, 18, 12, 16, 40, 20, 16, 18, 20, 18, 22, 18, 30, 44, 14)
+WORKLIST_WIDTHS = (16, 28, 14, 12, 14, 12, 30, 20, 18, 12, 16, 40, 20, 16, 18, 20, 18, 22, 18, 30, 44, 14)
 LEFT_HEADERS = {
     "입력 표적", "추천 미생물", "관계 분류", "선정 범위", "사내 자원명", "비고",
     "미생물", "검토 근거", "사내 매칭명", "매칭 방식", "원본 시트",
@@ -154,7 +154,10 @@ def _format_worklist(sheet):
             row[check_index].font = Font(name=FONT_NAME, size=9, bold=True, color="9A3412")
 
 
-def _add_summary_sheet(workbook, *, assay_type, target, candidate_last_row, worklist_last_row):
+def _add_summary_sheet(
+    workbook, *, assay_type, target, candidate_last_row, worklist_last_row,
+    readiness_column,
+):
     sheet = workbook.create_sheet("요약", 0)
     sheet.sheet_view.showGridLines = False
     sheet.sheet_view.zoomScale = 95
@@ -235,10 +238,10 @@ def _add_summary_sheet(workbook, *, assay_type, target, candidate_last_row, work
             cell.border = Border(bottom=Side(style="thin", color=LINE))
 
     readiness = (
-        ("즉시 사용 가능", "DCFCE7", f'=COUNTIF(\'시험_작업목록\'!$Q$2:$Q${worklist_last_row},"즉시 사용 가능")'),
-        ("원액·희석 준비", AMBER_SOFT, f'=COUNTIF(\'시험_작업목록\'!$Q$2:$Q${worklist_last_row},"희석 필요")+COUNTIF(\'시험_작업목록\'!$Q$2:$Q${worklist_last_row},"원액 사용 가능")'),
-        ("소진·미보유", "FEE2E2", f'=COUNTIF(\'시험_작업목록\'!$Q$2:$Q${worklist_last_row},"소진")+COUNTIF(\'시험_작업목록\'!$Q$2:$Q${worklist_last_row},"미보유")'),
-        ("정보·재고 확인", "FFEDD5", f'=COUNTIF(\'시험_작업목록\'!$Q$2:$Q${worklist_last_row},"정보 확인 필요")'),
+        ("즉시 사용 가능", "DCFCE7", f'=COUNTIF(\'시험_작업목록\'!${readiness_column}$2:${readiness_column}${worklist_last_row},"즉시 사용 가능")'),
+        ("원액·희석 준비", AMBER_SOFT, f'=COUNTIF(\'시험_작업목록\'!${readiness_column}$2:${readiness_column}${worklist_last_row},"희석 필요")+COUNTIF(\'시험_작업목록\'!${readiness_column}$2:${readiness_column}${worklist_last_row},"원액 사용 가능")'),
+        ("소진·미보유", "FEE2E2", f'=COUNTIF(\'시험_작업목록\'!${readiness_column}$2:${readiness_column}${worklist_last_row},"소진")+COUNTIF(\'시험_작업목록\'!${readiness_column}$2:${readiness_column}${worklist_last_row},"미보유")'),
+        ("정보·재고 확인", "FFEDD5", f'=COUNTIF(\'시험_작업목록\'!${readiness_column}$2:${readiness_column}${worklist_last_row},"정보 확인 필요")'),
     )
     for row_index, (status, fill, formula) in enumerate(readiness, start=13):
         sheet.cell(row_index, 6, status)
@@ -287,8 +290,10 @@ def build_excel_download(results, assay_type: str = "", target: str = "") -> byt
         ]
         pd.DataFrame(worklist_records).to_excel(writer, sheet_name="시험_작업목록", index=False)
         worklist_sheet = writer.book["시험_작업목록"]
-        _style_sheet(worklist_sheet, WORKLIST_WIDTHS, freeze="E2")
+        _style_sheet(worklist_sheet, WORKLIST_WIDTHS, freeze="G2")
         _format_worklist(worklist_sheet)
+        worklist_headers = {cell.value: cell.column for cell in worklist_sheet[1] if cell.value}
+        readiness_column = get_column_letter(worklist_headers["준비 상태"])
 
         all_records = [
             {heading: excel_safe_value(item.get(key, "")) for key, heading in REPORT_COLUMNS.items()} for item in results
@@ -345,6 +350,7 @@ def build_excel_download(results, assay_type: str = "", target: str = "") -> byt
         _add_summary_sheet(
             writer.book, assay_type=assay_type, target=target,
             candidate_last_row=max(2, all_sheet.max_row), worklist_last_row=max(2, worklist_sheet.max_row),
+            readiness_column=readiness_column,
         )
         writer.book.calculation.calcMode = "auto"
         writer.book.calculation.fullCalcOnLoad = True

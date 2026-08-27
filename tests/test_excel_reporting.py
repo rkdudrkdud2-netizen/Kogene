@@ -45,14 +45,17 @@ def test_excel_report_has_readable_alignment_borders_and_dimensions():
     assert summary.sheet_view.showGridLines is False
 
     worklist = workbook["시험_작업목록"]
-    assert worklist.auto_filter.ref == f"A1:T{len(results) + 1}"
+    assert worklist.auto_filter.ref == f"A1:V{len(results) + 1}"
     assert worklist["A1"].alignment.horizontal == "center"
-    assert worklist["Q2"].value == "미보유"
+    assert worklist["C2"].value == "장관계"
+    assert worklist["D2"].value == "세균"
+    assert worklist["S2"].value == "미보유"
     assert worklist["B2"].value == "Target A + Target B"
-    assert worklist["C2"].value == "특이도"
-    assert worklist["D2"].value == "필수"
-    assert worklist["Q2"].fill.fgColor.rgb.endswith("FEE2E2")
-    assert worklist.freeze_panes == "E2"
+    assert worklist["E2"].value == "특이도"
+    assert worklist["F2"].value == "필수"
+    assert worklist["S2"].fill.fgColor.rgb.endswith("FEE2E2")
+    assert worklist.freeze_panes == "G2"
+    assert "$S$2:$S$" in summary["G13"].value
     assert worklist.page_setup.orientation == "landscape"
     assert worklist.sheet_view.showGridLines is False
     assert len(worklist.tables) == 0

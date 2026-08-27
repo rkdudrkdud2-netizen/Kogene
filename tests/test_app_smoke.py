@@ -19,6 +19,7 @@ def test_crosscheck_page_renders_without_exception():
     summary_html = "\n".join(item.value for item in app.markdown)
     assert "포괄성 후보" in summary_html and "특이도 후보" in summary_html
     assert len(app.dataframe) >= 3
+    assert {"질환군", "병원체 유형"}.issubset(app.dataframe[0].value.columns)
     assert len(app.download_button) == 1
 
 

@@ -44,6 +44,25 @@ def test_resource_readiness_and_inventory_balance_check():
     )) == ("소진", "정상")
 
 
+def test_non_numeric_stock_status_is_not_exported_as_an_invented_zero():
+    results = [{
+        "organism": "Escherichia coli", "relation": "근연종", "scope": "표적 직접 연관",
+        "system": "장관계", "kind": "세균", "매칭 점수": 100.0,
+        "자원 상세": [_match(
+            initial_volume_ul="", cumulative_use_ul="", remaining_volume_ul="소진",
+            dilution_tubes="소진",
+        )],
+    }]
+
+    row = build_worklist_rows(results, "Single qPCR", "E. coli")[0]
+
+    assert row["최초 원액 용량 (µL)"] is None
+    assert row["원액 누적 사용량 (µL)"] is None
+    assert row["원액 잔량 (µL)"] is None
+    assert row["희석액(1/100) 튜브 수 (n)"] is None
+    assert row["준비 상태"] == "소진"
+
+
 def test_all_matching_resources_are_expanded_without_priority_selection():
     first = _match(inventory_id="Z001")
     second = _match(inventory_id="Z002", dilution_tubes="소진")

@@ -25,6 +25,23 @@ def _display_number(value: float | None):
     return int(value) if float(value).is_integer() else round(value, 3)
 
 
+def _display_provided_number(value):
+    """원본에 실제 숫자가 적힌 경우에만 보고서용 수치로 반환한다.
+
+    ``소진``은 준비 상태를 판단할 때는 0으로 해석할 수 있지만, 사용자가
+    제공한 수치 0은 아니다. 따라서 수치 열에는 빈칸으로 남겨 프로그램이
+    임의로 재고량을 만들어 낸 것처럼 보이지 않게 한다.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.casefold() in {"nan", "none", "<na>", "nat", "-", "—"}:
+        return None
+    if not re.search(r"-?\d[\d,]*(?:\.\d+)?", text):
+        return None
+    return _display_number(parse_quantity(text))
+
+
 def _match_value(match, field: str, default=""):
     """서버 재시작 전 생성된 구형 MatchResult도 안전하게 읽는다."""
     if isinstance(match, dict):
@@ -116,10 +133,10 @@ def build_worklist_rows(results, assay_type: str, target: str) -> list[dict]:
                 "사내 자원명": _match_value(match, "inventory_name") or "—",
                 "Cat no.": _match_value(match, "catalog_no") or "—",
                 "구매일": _match_value(match, "purchase_date") or "—",
-                "최초 원액 용량 (µL)": _display_number(parse_quantity(_match_value(match, "initial_volume_ul"))),
-                "원액 누적 사용량 (µL)": _display_number(parse_quantity(_match_value(match, "cumulative_use_ul"))),
-                "원액 잔량 (µL)": _display_number(parse_quantity(_match_value(match, "remaining_volume_ul"))),
-                "희석액(1/100) 튜브 수 (n)": _display_number(parse_quantity(_match_value(match, "dilution_tubes"))),
+                "최초 원액 용량 (µL)": _display_provided_number(_match_value(match, "initial_volume_ul")),
+                "원액 누적 사용량 (µL)": _display_provided_number(_match_value(match, "cumulative_use_ul")),
+                "원액 잔량 (µL)": _display_provided_number(_match_value(match, "remaining_volume_ul")),
+                "희석액(1/100) 튜브 수 (n)": _display_provided_number(_match_value(match, "dilution_tubes")),
                 "준비 상태": readiness,
                 "재고 점검": check,
                 "비고": _match_value(match, "notes") or "—",

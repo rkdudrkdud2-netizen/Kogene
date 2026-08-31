@@ -382,19 +382,21 @@ def find_matches(
             score, method = similarity_score(target_name, candidate, aliases)
             if score > best_score:
                 best_score, best_method = score, method
-        inventory_id = str(record.get("inventory_id", ""))
-        inventory_name = str(record.get("inventory_name", ""))
-        catalog_no = str(record.get("catalog_no", ""))
-        sheet = str(record.get("sheet", ""))
+        # pandas의 결측값을 str()로 바꾸면 "nan"/"<NA>"가 실제 입력값처럼
+        # 이후 화면과 Excel까지 전달될 수 있으므로 경계에서 빈 문자열로 정리한다.
+        inventory_id = _clean_cell(record.get("inventory_id", ""))
+        inventory_name = _clean_cell(record.get("inventory_name", ""))
+        catalog_no = _clean_cell(record.get("catalog_no", ""))
+        sheet = _clean_cell(record.get("sheet", ""))
         result = MatchResult(
             best_score >= threshold, best_score, best_method,
             inventory_name, inventory_id, catalog_no, sheet,
-            str(record.get("purchase_date", "")),
-            str(record.get("initial_volume_ul", "")),
-            str(record.get("cumulative_use_ul", "")),
-            str(record.get("remaining_volume_ul", "")),
-            str(record.get("dilution_tubes", "")),
-            str(record.get("notes", "")),
+            _clean_cell(record.get("purchase_date", "")),
+            _clean_cell(record.get("initial_volume_ul", "")),
+            _clean_cell(record.get("cumulative_use_ul", "")),
+            _clean_cell(record.get("remaining_volume_ul", "")),
+            _clean_cell(record.get("dilution_tubes", "")),
+            _clean_cell(record.get("notes", "")),
         )
         if best_score > best.score:
             best = result

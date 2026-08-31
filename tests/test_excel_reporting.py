@@ -4,6 +4,7 @@ from zipfile import ZipFile
 from openpyxl import Workbook, load_workbook
 
 from excel_reporting import REPORT_GROUPS, _format_worklist, build_excel_download
+from inventory_matching import MatchResult
 
 
 def _result(system="장관계", kind="세균", validation="특이도"):
@@ -131,3 +132,22 @@ def test_worklist_formatting_tolerates_an_optional_trailing_column_being_absent(
     _format_worklist(sheet)
 
     assert sheet["Q2"].fill.fgColor.rgb.endswith("FEE2E2")
+
+
+def test_excel_keeps_unprovided_stock_quantities_blank():
+    result = _result()
+    result["자원 상세"] = [MatchResult(
+        True, 100.0, "정규화 일치", "Escherichia coli", "Z001", "00123", "Sheet1",
+        remaining_volume_ul="소진", dilution_tubes="소진",
+    )]
+
+    workbook = load_workbook(BytesIO(build_excel_download([result])))
+    sheet = workbook["시험_작업목록"]
+    columns = {cell.value: cell.column for cell in sheet[1]}
+
+    for header in (
+        "최초 원액 용량 (µL)", "원액 누적 사용량 (µL)", "원액 잔량 (µL)",
+        "희석액(1/100) 튜브 수 (n)",
+    ):
+        assert sheet.cell(2, columns[header]).value is None
+    assert sheet.cell(2, columns["준비 상태"]).value == "소진"

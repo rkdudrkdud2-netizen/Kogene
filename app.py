@@ -412,7 +412,11 @@ st.dataframe(
         "매칭 점수": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%.1f"),
     },
 )
-st.caption("재고 점검은 ‘최초 원액 용량 − 누적 사용량 = 원액 잔량’인지 확인합니다. 구매일은 유효기간 판정이 아니라 자원 식별 정보로만 표시합니다.")
+st.caption(
+    "재고 수치 열은 업로드 원본에 숫자로 제공된 값만 표시하며 빈 값이나 ‘소진’을 0으로 임의 변환하지 않습니다. "
+    "재고 점검은 수치 3개가 모두 제공된 경우에만 ‘최초 원액 용량 − 누적 사용량 = 원액 잔량’인지 확인합니다. "
+    "구매일은 유효기간 판정이 아니라 자원 식별 정보로만 표시합니다."
+)
 
 def render_candidate_table(group, table_key, grouped_view=True):
     if not group:

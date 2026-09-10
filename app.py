@@ -18,9 +18,9 @@ from inventory_matching import find_matches, normalize_name, read_inventory
 # 장시간 실행 중인 Streamlit 서버에서도 검색 데이터·규칙 변경을 즉시 반영한다.
 cross_reactivity_data = importlib.reload(cross_reactivity_data)
 candidate_grouping = importlib.reload(candidate_grouping)
+worklist = importlib.reload(worklist)
 excel_reporting = importlib.reload(excel_reporting)
 specificity_engine = importlib.reload(specificity_engine)
-worklist = importlib.reload(worklist)
 
 
 st.set_page_config(page_title="qPCR CrossCheck", page_icon="🧬", layout="wide")

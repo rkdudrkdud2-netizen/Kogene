@@ -6,6 +6,14 @@ import math
 import re
 
 
+WORKLIST_COLUMNS = (
+    "입력 표적", "질환군", "병원체 유형", "검증 구분", "우선순위", "추천 미생물",
+    "보유 여부", "관리번호", "사내 자원명", "Cat no.", "구매일",
+    "최초 원액 용량 (µL)", "원액 누적 사용량 (µL)", "원액 잔량 (µL)",
+    "희석액(1/100) 튜브 수 (n)", "준비 상태", "재고 점검", "비고", "매칭 점수",
+)
+
+
 def parse_quantity(value) -> float | None:
     """µL 또는 튜브 수 값을 숫자로 정규화하며 '소진'은 0으로 처리한다."""
     if value is None:
@@ -91,15 +99,12 @@ def build_worklist_rows(results, assay_type: str, target: str) -> list[dict]:
         matches = item.get("자원 상세", [])
         if not matches:
             rows.append({
-                "qPCR 구성": assay_type,
                 "입력 표적": target_label,
                 "질환군": item.get("system", "기타"),
                 "병원체 유형": item.get("kind", "미분류"),
                 "검증 구분": item.get("검증 구분", "특이도"),
                 "우선순위": item.get("우선순위", "참고"),
                 "추천 미생물": item["organism"],
-                "관계 분류": item["relation"],
-                "선정 범위": item.get("scope", "기본 패널"),
                 "보유 여부": "미보유",
                 "관리번호": "—",
                 "사내 자원명": "—",
@@ -119,15 +124,12 @@ def build_worklist_rows(results, assay_type: str, target: str) -> list[dict]:
         for match in matches:
             readiness, check = resource_readiness(match)
             rows.append({
-                "qPCR 구성": assay_type,
                 "입력 표적": target_label,
                 "질환군": item.get("system", "기타"),
                 "병원체 유형": item.get("kind", "미분류"),
                 "검증 구분": item.get("검증 구분", "특이도"),
                 "우선순위": item.get("우선순위", "참고"),
                 "추천 미생물": item["organism"],
-                "관계 분류": item["relation"],
-                "선정 범위": item.get("scope", "기본 패널"),
                 "보유 여부": "보유",
                 "관리번호": _match_value(match, "inventory_id") or "—",
                 "사내 자원명": _match_value(match, "inventory_name") or "—",

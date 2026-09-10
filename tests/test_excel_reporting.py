@@ -49,16 +49,16 @@ def test_excel_report_has_readable_alignment_borders_and_dimensions():
     assert summary.sheet_view.showGridLines is False
 
     worklist = workbook["시험_작업목록"]
-    assert worklist.auto_filter.ref == f"A1:V{len(results) + 1}"
+    assert worklist.auto_filter.ref == f"A1:S{len(results) + 1}"
     assert worklist["A1"].alignment.horizontal == "center"
-    assert worklist["C2"].value == "장관계"
-    assert worklist["D2"].value == "세균"
-    assert worklist["S2"].value == "미보유"
-    assert worklist["B2"].value == "Target A + Target B"
-    assert worklist["E2"].value == "특이도"
-    assert worklist["F2"].value == "필수"
-    assert worklist["S2"].fill.fgColor.rgb.endswith("FEE2E2")
-    assert worklist.freeze_panes == "G2"
+    assert worklist["A2"].value == "Target A + Target B"
+    assert worklist["B2"].value == "장관계"
+    assert worklist["C2"].value == "세균"
+    assert worklist["D2"].value == "특이도"
+    assert worklist["E2"].value == "필수"
+    assert worklist["P2"].value == "미보유"
+    assert worklist["P2"].fill.fgColor.rgb.endswith("FEE2E2")
+    assert worklist.freeze_panes == "F2"
     assert summary["B13"].value == 1
     assert summary["C13"].value == len(REPORT_GROUPS)
     assert summary["D13"].value == len(results)
@@ -78,7 +78,7 @@ def test_excel_report_has_readable_alignment_borders_and_dimensions():
         assert sheet["A1"].font.bold
         assert sheet["A1"].alignment.horizontal == "center"
 
-        for row in sheet.iter_rows(min_row=1, max_row=2, min_col=1, max_col=14):
+        for row in sheet.iter_rows(min_row=1, max_row=2, min_col=1, max_col=11):
             for cell in row:
                 assert cell.alignment.vertical == "center"
                 assert cell.alignment.wrap_text
@@ -86,10 +86,10 @@ def test_excel_report_has_readable_alignment_borders_and_dimensions():
                 assert cell.border.bottom.style in {"thin", "medium"}
 
         assert sheet["A2"].fill.fgColor.rgb.endswith("F8FAFC")
+        assert sheet["F2"].number_format == "@"
         assert sheet["I2"].number_format == "@"
-        assert sheet["L2"].number_format == "@"
-        assert sheet["H2"].number_format == "#,##0"
-        assert sheet["J2"].number_format == "0.0"
+        assert sheet["E2"].number_format == "#,##0"
+        assert sheet["G2"].number_format == "0.0"
         assert len(sheet.tables) == 0
 
     with ZipFile(BytesIO(report_bytes)) as archive:

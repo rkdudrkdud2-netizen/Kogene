@@ -35,12 +35,13 @@ def test_all_management_numbers_are_retained():
     assert [match.inventory_id for match in matches] == ["Z101", "Z102"]
 
 
-def test_target_and_disease_group_selection():
+def test_target_selection_and_disease_name_rejection():
     rows, interpretation = select_cross_reactivity_rows("stx1/stx2")
     assert "STEC" in interpretation
     assert any(item["organism"] == "Escherichia albertii" for item in rows)
-    respiratory, _ = select_cross_reactivity_rows("호흡기계 감염증")
-    assert respiratory and all(item["system"] == "호흡기계" for item in respiratory)
+    respiratory, interpretation = select_cross_reactivity_rows("호흡기계 감염증")
+    assert respiratory == []
+    assert "질환명은 검색 대상이 아닙니다" in interpretation
 
 
 def test_ehec_returns_comprehensive_gastrointestinal_panel():
@@ -110,14 +111,14 @@ def test_targets_from_both_systems_return_combined_full_panel():
 
 
 def test_multiplex_targets_keep_only_their_related_input_labels():
-    rows, interpretation, unrecognized = select_cross_reactivity_rows_for_targets(["Malaria", "Salmonella"])
+    rows, interpretation, unrecognized = select_cross_reactivity_rows_for_targets(["Plasmodium", "Salmonella"])
     assert not unrecognized
-    assert "Malaria" in interpretation and "Salmonella" in interpretation
+    assert "Plasmodium" in interpretation and "Salmonella" in interpretation
     assert "혈액매개 기생충" in interpretation
     assert len(rows) == 34
     malaria_row = next(item for item in rows if item["organism"] == "Plasmodium falciparum")
     salmonella_row = next(item for item in rows if item["organism"] == "Salmonella bongori")
-    assert malaria_row["input_targets"] == ("Malaria",)
+    assert malaria_row["input_targets"] == ("Plasmodium",)
     assert salmonella_row["input_targets"] == ("Salmonella",)
 
 
@@ -205,7 +206,7 @@ def test_combined_adenovirus_types_match_either_requested_type(inventory_name):
 def test_short_target_alias_does_not_match_inside_another_word():
     rows, interpretation = select_cross_reactivity_rows("HPIV1 respiratory panel")
     assert "M. pneumoniae" not in interpretation
-    assert rows and all(item["system"] == "호흡기계" for item in rows)
+    assert len(rows) == 1 and rows[0]["scope"] == "사용자 입력"
 
 
 def test_url_rows_are_not_accepted_as_organism_inventory():

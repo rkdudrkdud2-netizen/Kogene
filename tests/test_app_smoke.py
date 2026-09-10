@@ -33,7 +33,7 @@ def test_representative_pathogen_view_is_default_and_can_expand_to_detail_rows()
         "대표 병원체 묶음", "대표 병원체 묶음",
     ]
     assert "대표 병원체" in app.dataframe[1].value.columns
-    assert any("세부 후보 8개" in item.value for item in app.caption)
+    assert any("세부 후보" in item.value for item in app.caption)
 
     app.segmented_control[1].set_value("세부 후보 전체").run()
 
@@ -145,7 +145,7 @@ def test_multiplex_target_count_creates_inputs_and_tracks_each_target():
     app = AppTest.from_file(str(APP_PATH), default_timeout=20).run()
     app.number_input[0].set_value(3).run()
     assert len(app.text_input) == 3
-    app.text_input[0].set_value("Malaria")
+    app.text_input[0].set_value("Plasmodium")
     app.text_input[1].set_value("Salmonella")
     app.text_input[2].set_value("")
     app.run()
@@ -158,5 +158,14 @@ def test_multiplex_target_count_creates_inputs_and_tracks_each_target():
     salmonella_targets = set(worklist.loc[
         worklist["추천 미생물"].eq("Salmonella bongori"), "입력 표적"
     ])
-    assert malaria_targets == {"Malaria"}
+    assert malaria_targets == {"Plasmodium"}
     assert salmonella_targets == {"Salmonella"}
+
+
+def test_disease_name_is_excluded_and_requests_a_real_target():
+    app = AppTest.from_file(str(APP_PATH), default_timeout=20).run()
+    app.text_input[0].set_value("장관계 감염증").run()
+
+    assert not app.exception
+    assert app.metric[0].value == "0종"
+    assert any("질환명은 검색에서 제외했습니다" in item.value for item in app.warning)

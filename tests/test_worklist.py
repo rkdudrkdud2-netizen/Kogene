@@ -73,7 +73,7 @@ def test_all_matching_resources_are_expanded_without_priority_selection():
     }]
     rows = build_worklist_rows(results, "Multiplex qPCR", "stx1 + stx2")
     assert [row["관리번호"] for row in rows] == ["Z001", "Z002"]
-    assert all(row["qPCR 구성"] == "Multiplex qPCR" for row in rows)
+    assert all("qPCR 구성" not in row and "관계 분류" not in row and "선정 범위" not in row for row in rows)
     assert all(row["질환군"] == "장관계" and row["병원체 유형"] == "세균" for row in rows)
 
 

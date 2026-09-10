@@ -227,23 +227,28 @@ with st.sidebar:
     if assay_type == "Multiplex qPCR":
         target_count = int(st.number_input(
             "타겟 수", min_value=1, max_value=20, value=2, step=1,
-            help="입력한 수만큼 질환·균주·병원체·표적 유전자 입력란이 생성됩니다.",
+            help="입력한 수만큼 균주·병원체·표적 유전자 입력란이 생성됩니다.",
         ))
         for index in range(target_count):
             target_queries.append(st.text_input(
-                f"질환 / 균주·병원체 / 표적 유전자 {index + 1}",
-                value="장관계 감염증" if index == 0 else "",
+                f"균주·병원체 / 표적 유전자 {index + 1}",
+                value="Salmonella" if index == 0 else "",
                 placeholder="예: E. coli ATCC 25922, Salmonella, stx1/stx2",
                 key=f"multiplex_target_{index + 1}",
             ))
     else:
         target_queries.append(st.text_input(
-            "질환 / 균주·병원체 / 표적 유전자",
-            value="장관계 감염증",
+            "균주·병원체 / 표적 유전자",
+            value="Salmonella",
             placeholder="예: E. coli ATCC 25922, Salmonella 또는 invA",
             key="single_target",
         ))
-    target = " + ".join(value.strip() for value in target_queries if value.strip())
+    disease_queries = [value.strip() for value in target_queries if cross_reactivity_data.is_disease_query(value)]
+    analysis_queries = [
+        value for value in target_queries
+        if value.strip() and not cross_reactivity_data.is_disease_query(value)
+    ]
+    target = " + ".join(value.strip() for value in analysis_queries)
     threshold = st.slider(
         "보유 판정 유사도", 70, 100, 86,
         help="값이 낮으면 표기 차이를 넓게 잡지만 오매칭 가능성이 커집니다.",
@@ -260,7 +265,7 @@ st.markdown("""
 <div class="hero">
   <div class="eyebrow">MOLECULAR DIAGNOSTICS · QC PLANNING</div>
   <h1>qPCR CrossCheck</h1>
-  <p>질환·균주·병원체·표적 유전자별 교차반응 검토 후보를 분류하고, 사내 보유 자원과 이름을 지능적으로 대조합니다.</p>
+  <p>균주·병원체·표적 유전자별 교차반응 검토 후보를 분류하고, 사내 보유 자원과 이름을 지능적으로 대조합니다.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -285,14 +290,20 @@ elif inventory is not None:
 else:
     st.info("사내 자원 파일을 업로드하면 보유 여부와 최적 매칭명을 표시합니다. 지금은 모든 후보를 미보유로 표시합니다.")
 
-specificity_rows, interpretation, unrecognized_targets = cross_reactivity_data.select_cross_reactivity_rows_for_targets(target_queries)
+if disease_queries:
+    st.warning(
+        "질환명은 검색에서 제외했습니다: " + ", ".join(disease_queries)
+        + " · 실제 균주·병원체명 또는 표적 유전자를 입력해 주세요."
+    )
+
+specificity_rows, interpretation, unrecognized_targets = cross_reactivity_data.select_cross_reactivity_rows_for_targets(analysis_queries)
 specificity_rows, name_classified_targets = specificity_engine.expand_user_pathogen_rows(
-    specificity_rows, target_queries,
+    specificity_rows, analysis_queries,
 )
 specificity_rows, inventory_resolved_targets = specificity_engine.augment_rows_from_inventory(
-    specificity_rows, target_queries, inventory,
+    specificity_rows, analysis_queries, inventory,
 )
-inclusivity_rows = specificity_engine.build_inclusivity_rows(target_queries, inventory)
+inclusivity_rows = specificity_engine.build_inclusivity_rows(analysis_queries, inventory)
 specificity_rows = specificity_engine.exclude_inclusivity_from_specificity(
     specificity_rows, inclusivity_rows,
 )
@@ -302,7 +313,7 @@ unrecognized_targets = [
     if target.casefold() not in name_classified_targets | inventory_resolved_targets
 ]
 if name_classified_targets:
-    for classified_target in target_queries:
+    for classified_target in analysis_queries:
         classified_target = classified_target.strip()
         if classified_target.casefold() not in name_classified_targets:
             continue
@@ -376,16 +387,15 @@ work_metrics[1].metric("원액·희석 준비", f"{preparation_count}건")
 work_metrics[2].metric("소진·미보유", f"{exhausted_count}건")
 work_metrics[3].metric("정보·재고 확인", f"{check_count}건")
 st.dataframe(
-    pd.DataFrame(visible_worklist_rows), width="stretch", hide_index=True, height=520,
+    pd.DataFrame(visible_worklist_rows, columns=worklist.WORKLIST_COLUMNS),
+    width="stretch", hide_index=True, height=520,
     column_config={
-        "qPCR 구성": st.column_config.TextColumn(width="small"),
         "입력 표적": st.column_config.TextColumn(width="medium"),
         "질환군": st.column_config.TextColumn(width="small"),
         "병원체 유형": st.column_config.TextColumn(width="small"),
         "검증 구분": st.column_config.TextColumn(width="small"),
         "우선순위": st.column_config.TextColumn(width="small"),
         "추천 미생물": st.column_config.TextColumn(width="medium"),
-        "선정 범위": st.column_config.TextColumn(width="medium"),
         "관리번호": st.column_config.TextColumn(width="small"),
         "사내 자원명": st.column_config.TextColumn(width="large"),
         "최초 원액 용량 (µL)": st.column_config.NumberColumn(format="%.1f"),
@@ -412,8 +422,6 @@ def render_candidate_table(group, table_key, grouped_view=True):
         "우선순위": item.get("우선순위", "참고"),
         "미생물": item["organism"],
         "관련 입력 표적": " + ".join(item.get("input_targets", (target,))),
-        "분류": item["relation"], "선정 범위": item.get("scope", "기본 패널"),
-        "검토 근거": item["basis"],
         "보유 여부": item["보유 여부"], "보유 자원 수": item["보유 자원 수"],
         "관리번호": item["관리번호"], "점수": item["매칭 점수"],
         "사내 매칭명": item["사내 매칭명"], "Cat no.": item["Cat no."],
@@ -426,11 +434,11 @@ def render_candidate_table(group, table_key, grouped_view=True):
     if grouped_view:
         grouped_rows = candidate_grouping.group_candidate_rows(group)
         core_display = pd.DataFrame(grouped_rows)
-        core_columns = ["우선순위", "대표 병원체", "세부 후보 수", "관련 입력 표적", "분류", "보유 여부", "보유 자원 수"]
+        core_columns = ["우선순위", "대표 병원체", "세부 후보 수", "관련 입력 표적", "보유 여부", "보유 자원 수"]
         core_display = core_display[core_columns]
         st.caption(f"대표 병원체 {len(core_display)}개로 세부 후보 {len(display)}개를 묶어 표시합니다.")
     else:
-        core_columns = ["우선순위", "미생물", "관련 입력 표적", "분류", "보유 여부", "보유 자원 수", "관리번호"]
+        core_columns = ["우선순위", "미생물", "관련 입력 표적", "보유 여부", "보유 자원 수", "관리번호"]
         core_display = display[core_columns]
     core_display = core_display.style.map(lambda value: priority_colors.get(value, ""), subset=["우선순위"])
     st.dataframe(
@@ -442,20 +450,17 @@ def render_candidate_table(group, table_key, grouped_view=True):
             "미생물": st.column_config.TextColumn(width="large"),
             "대표 병원체": st.column_config.TextColumn(width="medium"),
             "세부 후보 수": st.column_config.NumberColumn("세부 후보", format="%d개", width="small"),
-            "분류": st.column_config.TextColumn(width="medium"),
             "관리번호": st.column_config.TextColumn("관리번호", width="medium", help="매칭된 모든 사내 자원의 관리번호"),
             "보유 자원 수": st.column_config.NumberColumn("보유 자원 수", format="%d건"),
         },
     )
-    with st.expander(f"세부 후보·근거·매칭 정보 보기 · {len(display)}행", expanded=False):
+    with st.expander(f"세부 후보·매칭 정보 보기 · {len(display)}행", expanded=False):
         st.dataframe(
             display, width="stretch", hide_index=True, height=min(480, 44 + len(display) * 35),
             column_config={
                 "우선순위": st.column_config.TextColumn(width="small"),
                 "점수": st.column_config.ProgressColumn("매칭 점수", min_value=0, max_value=100, format="%.1f"),
                 "관련 입력 표적": st.column_config.TextColumn(width="medium"),
-                "선정 범위": st.column_config.TextColumn(width="medium"),
-                "검토 근거": st.column_config.TextColumn(width="large"),
                 "관리번호": st.column_config.TextColumn("관리번호", width="medium"),
                 "보유 자원 수": st.column_config.NumberColumn("보유 자원 수", format="%d건"),
                 "사내 매칭명": st.column_config.TextColumn(width="large"),
@@ -522,7 +527,7 @@ st.caption("관리번호는 보유 판정을 받은 후보에 대해 모두 표�
 
 st.markdown('<div class="section-label">EXCEL REPORT</div>', unsafe_allow_html=True)
 st.subheader("분류별 결과 다운로드")
-st.caption("포괄성 후보는 전용 시트에, 특이도 후보는 병원체 분류별 시트에 저장되며 시험 작업목록에는 검증 구분과 우선순위가 함께 표시됩니다.")
+st.caption("포괄성·특이도 후보와 시험 작업목록을 핵심 열만 정리해 저장합니다.")
 st.download_button(
     "결과 Excel 다운로드", excel_reporting.build_excel_download(results, assay_type=assay_type, target=target),
     "qpcr_crosscheck_result.xlsx",

@@ -29,7 +29,7 @@ TARGET_ALIASES = {
     "pertussis": ("bordetella pertussis", "b. pertussis", "b pertussis", "is481", "ptxs1", "백일해"),
     "m_pneumoniae": ("mycoplasma pneumoniae", "m. pneumoniae", "m pneumoniae",
                       "p1", "마이코플라스마 폐렴"),
-    "malaria": ("malaria", "말라리아", "plasmodium", "18s rrna", "plasmodium falciparum",
+    "malaria": ("plasmodium", "18s rrna", "plasmodium falciparum",
                 "p. falciparum", "plasmodium vivax", "p. vivax", "plasmodium malariae",
                 "p. malariae", "plasmodium ovale", "p. ovale", "plasmodium knowlesi", "p. knowlesi"),
     "babesia": ("babesia", "babesiosis", "바베시아", "바베시아증", "babesia microti",
@@ -125,11 +125,11 @@ CROSS_REACTIVITY_ROWS = [
     row("혈액매개", "기생충", "Babesia divergens", "감별 병원체", "적혈구 내 원충으로 Plasmodium과 감별 및 비특이 반응 확인", ["babesia"], ["B. divergens"]),
 ]
 
-SYSTEM_TERMS = {
-    "장관계": ("장관", "장염", "설사", "gastro", "enteric", "diarrhea"),
-    "호흡기계": ("호흡기", "폐렴", "respiratory", "pneumonia", "ari"),
-    "혈액매개": ("혈액매개", "bloodborne", "blood-borne", "혈액 원충"),
-}
+DISEASE_QUERY_TERMS = (
+    "장관계 감염증", "장관 감염", "장염", "설사 질환", "gastroenteritis",
+    "호흡기계 감염증", "호흡기계 감염", "호흡기 감염증", "호흡기 감염", "폐렴", "respiratory infection",
+    "혈액매개 감염", "bloodborne infection", "말라리아", "malaria",
+)
 
 SCOPE_PRIORITY = {
     "사용자 입력": 6,
@@ -159,6 +159,12 @@ def _catalog_matches(text: str):
     return matches
 
 
+def is_disease_query(query: str) -> bool:
+    """질환명만 입력한 경우를 식별해 검출 타겟 검색과 분리한다."""
+    text = (query or "").strip().lower()
+    return bool(text) and any(_contains_term(text, term) for term in DISEASE_QUERY_TERMS)
+
+
 def _panel_interpretation(prefix: str, systems: set[str]) -> str:
     panel_kinds = [
         kind for kind in ("세균", "바이러스", "기생충")
@@ -168,10 +174,11 @@ def _panel_interpretation(prefix: str, systems: set[str]) -> str:
 
 
 def select_cross_reactivity_rows(query: str):
-    """질환·유전자·미생물 자유 입력을 해석해 (후보 목록, 해석 문구)를 반환한다."""
+    """유전자·균주·병원체 입력을 해석해 (후보 목록, 해석 문구)를 반환한다."""
     text = (query or "").strip().lower()
+    if is_disease_query(query):
+        return [], "질환명은 검색 대상이 아닙니다. 실제 균주·병원체명 또는 표적 유전자를 입력해 주세요."
     target_ids = {key for key, aliases in TARGET_ALIASES.items() if any(_contains_term(text, alias) for alias in aliases)}
-    systems = {system for system, terms in SYSTEM_TERMS.items() if any(_contains_term(text, term) for term in terms)}
 
     if target_ids:
         target_systems = {TARGET_SYSTEMS[key] for key in target_ids}
@@ -191,10 +198,6 @@ def select_cross_reactivity_rows(query: str):
             rows.append(copied)
         labels = ", ".join(TARGET_LABELS[key] for key in sorted(target_ids))
         interpretation = _panel_interpretation(f"표적: {labels}", target_systems)
-    elif systems:
-        rows = [{**item, "scope": "질환군 전체"}
-                for item in CROSS_REACTIVITY_ROWS if item["system"] in systems]
-        interpretation = "질환군: " + ", ".join(sorted(systems))
     else:
         direct = _catalog_matches(text) if text else []
         if direct:

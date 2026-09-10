@@ -13,12 +13,11 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.page import PageMargins
 
 from inventory_matching import excel_safe_value
-from worklist import build_worklist_rows
+from worklist import WORKLIST_COLUMNS, build_worklist_rows
 
 
 REPORT_COLUMNS = {
     "organism": "미생물", "검증 구분": "검증 구분", "우선순위": "우선순위",
-    "relation": "관계 분류", "scope": "선정 범위", "basis": "검토 근거",
     "보유 여부": "보유 여부", "보유 자원 수": "보유 자원 수", "관리번호": "관리번호",
     "매칭 점수": "최고 매칭 점수", "사내 매칭명": "사내 매칭명",
     "Cat no.": "Cat no.", "매칭 방식": "매칭 방식", "원본 시트": "원본 시트",
@@ -36,11 +35,11 @@ NAVY, TEAL = "17324D", "0F766E"
 TEAL_SOFT, AMBER_SOFT, SLATE_SOFT = "CCFBF1", "FEF3C7", "F1F5F9"
 TEXT, MUTED, LINE, WHITE = "172033", "64748B", "DCE3EC", "FFFFFF"
 
-COLUMN_WIDTHS = (30, 14, 12, 20, 18, 52, 12, 14, 30, 14, 44, 24, 16, 18)
-WORKLIST_WIDTHS = (16, 28, 14, 12, 14, 12, 30, 20, 18, 12, 16, 40, 20, 16, 18, 20, 18, 22, 18, 30, 44, 14)
+COLUMN_WIDTHS = (30, 14, 12, 12, 14, 30, 14, 44, 24, 16, 18)
+WORKLIST_WIDTHS = (28, 14, 12, 14, 12, 30, 12, 16, 40, 20, 16, 18, 20, 18, 22, 18, 22, 30, 14)
 LEFT_HEADERS = {
-    "입력 표적", "추천 미생물", "관계 분류", "선정 범위", "사내 자원명", "비고",
-    "미생물", "검토 근거", "사내 매칭명", "매칭 방식", "원본 시트",
+    "입력 표적", "추천 미생물", "사내 자원명", "비고",
+    "미생물", "사내 매칭명", "매칭 방식", "원본 시트",
 }
 NUMERIC_HEADERS = {
     "보유 자원 수", "최고 매칭 점수", "매칭 점수", "최초 원액 용량 (µL)",
@@ -118,11 +117,17 @@ def _style_sheet(sheet, widths, *, freeze="D2"):
 
 
 def _format_candidate_numbers(sheet):
+    columns = {cell.value: cell.column - 1 for cell in sheet[1] if cell.value}
     for row in sheet.iter_rows(min_row=2):
-        row[7].number_format = "#,##0"
-        row[9].number_format = "0.0"
-        row[8].number_format = "@"
-        row[11].number_format = "@"
+        for header in ("보유 자원 수",):
+            if header in columns:
+                row[columns[header]].number_format = "#,##0"
+        for header in ("최고 매칭 점수",):
+            if header in columns:
+                row[columns[header]].number_format = "0.0"
+        for header in ("관리번호", "Cat no."):
+            if header in columns:
+                row[columns[header]].number_format = "@"
 
 
 def _format_worklist(sheet):
@@ -337,9 +342,9 @@ def build_excel_download(results, assay_type: str = "", target: str = "") -> byt
             {key: excel_safe_value(value) for key, value in row.items()}
             for row in build_worklist_rows(results, assay_type or "qPCR", target or "—")
         ]
-        pd.DataFrame(worklist_records).to_excel(writer, sheet_name="시험_작업목록", index=False)
+        pd.DataFrame(worklist_records, columns=WORKLIST_COLUMNS).to_excel(writer, sheet_name="시험_작업목록", index=False)
         worklist_sheet = writer.book["시험_작업목록"]
-        _style_sheet(worklist_sheet, WORKLIST_WIDTHS, freeze="G2")
+        _style_sheet(worklist_sheet, WORKLIST_WIDTHS, freeze="F2")
         _format_worklist(worklist_sheet)
 
         all_records = [

@@ -11,13 +11,15 @@ def test_crosscheck_page_renders_without_exception():
     assert not app.exception
     assert app.radio[0].value == "교차검증 패널"
     assert [metric.label for metric in app.metric[:4]] == [
-        "업로드 자원", "보유 후보종", "매칭 자원", "미보유 후보종",
+        "전체 후보", "포괄성", "특이도", "보유 후보",
     ]
     assert [metric.label for metric in app.metric[4:8]] == [
         "즉시 사용 가능", "원액·희석 준비", "소진·미보유", "정보·재고 확인",
     ]
-    summary_html = "\n".join(item.value for item in app.markdown)
-    assert "포괄성 후보" in summary_html and "특이도 후보" in summary_html
+    assert int(app.metric[0].value.removesuffix("종")) == (
+        int(app.metric[1].value.removesuffix("종")) + int(app.metric[2].value.removesuffix("종"))
+    )
+    assert sum(int(metric.value.removesuffix("건")) for metric in app.metric[4:8]) == len(app.dataframe[0].value)
     assert len(app.dataframe) >= 3
     assert {"질환군", "병원체 유형"}.issubset(app.dataframe[0].value.columns)
     assert len(app.download_button) == 1
@@ -57,9 +59,8 @@ def test_single_qpcr_mode_uses_the_same_worklist_flow():
     assert not app.exception
     assert app.selectbox[0].value == "Single qPCR"
     assert any(item.value == "Single qPCR 시험 작업 목록" for item in app.subheader)
-    summary_html = "\n".join(item.value for item in app.markdown)
-    assert "포괄성 후보" in summary_html and "1종" in summary_html
-    assert "특이도 후보" in summary_html and "27종" in summary_html
+    assert app.metric[1].value == "1종"
+    assert app.metric[2].value == "27종"
 
 
 def test_listeria_search_renders_results_without_unrecognized_warning():
@@ -67,9 +68,8 @@ def test_listeria_search_renders_results_without_unrecognized_warning():
     app.text_input[0].set_value("Listeria").run()
 
     assert not app.exception
-    summary_html = "\n".join(item.value for item in app.markdown)
-    assert "포괄성 후보" in summary_html and "1종" in summary_html
-    assert "특이도 후보" in summary_html and "27종" in summary_html
+    assert app.metric[1].value == "1종"
+    assert app.metric[2].value == "27종"
     assert not any("지원 패널로 인식하지 못한 타겟" in item.value for item in app.warning)
     assert any("Listeria monocytogenes" in item.value for item in app.caption)
 
@@ -93,8 +93,7 @@ def test_unregistered_pathogen_still_reaches_results_and_inventory_flow():
     app.text_input[0].set_value("Emerging pathogen X").run()
 
     assert not app.exception
-    summary_html = "\n".join(item.value for item in app.markdown)
-    assert "포괄성 후보" in summary_html and "1종" in summary_html
+    assert app.metric[1].value == "1종"
     assert any("검색과 사내 자원 대조에는 포함했습니다" in item.value for item in app.info)
     worklist = app.dataframe[0].value
     assert worklist.iloc[0]["추천 미생물"] == "Emerging pathogen X"
@@ -113,10 +112,9 @@ def test_uploaded_inventory_builds_specificity_panel_for_unregistered_pathogen()
     app.run()
 
     assert not app.exception
-    assert app.metric[0].value == "3건"
-    summary_html = "\n".join(item.value for item in app.markdown)
-    assert "포괄성 후보" in summary_html and "1종" in summary_html
-    assert "특이도 후보" in summary_html and "2종" in summary_html
+    assert any("자원 레코드 3건" in item.value for item in app.success)
+    assert app.metric[1].value == "1종"
+    assert app.metric[2].value == "2종"
     assert not any("자동 분류가 필요한" in item.value for item in app.info)
     worklist = app.dataframe[0].value
     assert set(worklist.loc[worklist["검증 구분"].eq("포괄성"), "추천 미생물"]) == {"Mayaro virus"}
@@ -137,7 +135,7 @@ def test_inventory_upload_runs_through_worklist_without_attribute_error():
     app.run()
 
     assert not app.exception
-    assert app.metric[0].value == "1건"
+    assert any("자원 레코드 1건" in item.value for item in app.success)
     assert app.metric[4].value == "1건"
     assert len(app.success) == 1
     assert "자원 레코드 1건" in app.success[0].value

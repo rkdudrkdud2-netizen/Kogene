@@ -318,51 +318,17 @@ inclusivity_results = build_results(inclusivity_rows, inventory, threshold)
 specificity_results = build_results(specificity_rows, inventory, threshold)
 results = [*inclusivity_results, *specificity_results]
 owned_count = sum(item["보유 여부"] == "보유" for item in results)
-missing_count = len(results) - owned_count
-matched_resource_count = sum(item["보유 자원 수"] for item in results)
-inventory_count = len(inventory) if inventory is not None else 0
 direct_count = sum(item.get("scope") == "표적 직접 연관" for item in results)
 expanded_count = sum(item.get("scope") == "증후군 확장" for item in results)
 inventory_related_count = sum(item.get("scope") == "재고 기반 근연 후보" for item in results)
 inventory_syndrome_count = sum(item.get("scope") == "재고 기반 증후군 후보" for item in results)
 
 metrics = st.columns(4)
-metrics[0].metric("업로드 자원", f"{inventory_count}건")
-metrics[1].metric("보유 후보종", f"{owned_count}종")
-metrics[2].metric("매칭 자원", f"{matched_resource_count}건")
-metrics[3].metric("미보유 후보종", f"{missing_count}종")
-
-summary_columns = st.columns(2)
-with summary_columns[0]:
-    st.markdown(
-        f"""
-        <div class="validation-summary inclusivity">
-          <div class="summary-kicker">INCLUSIVITY</div>
-          <div class="summary-row"><span class="summary-title">포괄성 후보</span><span class="summary-total">{len(inclusivity_results)}종</span></div>
-          <div class="priority-chips">
-            <span class="priority-chip required">필수 {sum(item.get('우선순위') == '필수' for item in inclusivity_results)}</span>
-            <span class="priority-chip recommended">권장 {sum(item.get('우선순위') == '권장' for item in inclusivity_results)}</span>
-            <span class="priority-chip reference">참고 {sum(item.get('우선순위') == '참고' for item in inclusivity_results)}</span>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-with summary_columns[1]:
-    st.markdown(
-        f"""
-        <div class="validation-summary specificity">
-          <div class="summary-kicker">EXCLUSIVITY · CROSS-REACTIVITY</div>
-          <div class="summary-row"><span class="summary-title">특이도 후보</span><span class="summary-total">{len(specificity_results)}종</span></div>
-          <div class="priority-chips">
-            <span class="priority-chip required">필수 {sum(item.get('우선순위') == '필수' for item in specificity_results)}</span>
-            <span class="priority-chip recommended">권장 {sum(item.get('우선순위') == '권장' for item in specificity_results)}</span>
-            <span class="priority-chip reference">참고 {sum(item.get('우선순위') == '참고' for item in specificity_results)}</span>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+metrics[0].metric("전체 후보", f"{len(results)}종")
+metrics[1].metric("포괄성", f"{len(inclusivity_results)}종")
+metrics[2].metric("특이도", f"{len(specificity_results)}종")
+metrics[3].metric("보유 후보", f"{owned_count}종")
+st.caption("대표 지표는 모두 후보 종 기준입니다. 전체 후보 = 포괄성 + 특이도이며, 보유 후보는 전체 후보 중 사내 자원이 매칭된 종입니다.")
 st.caption(f"검색 해석 · {interpretation}")
 if unrecognized_targets:
     st.info(
@@ -390,13 +356,20 @@ ready_count = sum(row["준비 상태"] == "즉시 사용 가능" for row in visi
 preparation_count = sum(row["준비 상태"] in {"희석 필요", "원액 사용 가능"} for row in visible_worklist_rows)
 exhausted_count = sum(row["준비 상태"] in {"소진", "미보유"} for row in visible_worklist_rows)
 check_count = sum(
-    row["준비 상태"] == "정보 확인 필요" or row["재고 점검"] not in {"정상", "—"}
+    row["준비 상태"] == "정보 확인 필요"
     for row in visible_worklist_rows
 )
+stock_issue_count = sum(row["재고 점검"] not in {"정상", "—"} for row in visible_worklist_rows)
+visible_work_count = len(visible_worklist_rows)
 
 if not show_reference_worklist:
     hidden_reference_count = len(worklist_rows) - len(visible_worklist_rows)
-    st.caption(f"현재 필수·권장 후보만 표시 중 · 참고 작업 {hidden_reference_count:,}건 숨김")
+    work_scope_caption = f"필수·권장 작업 {visible_work_count:,}건 기준 · 참고 작업 {hidden_reference_count:,}건 숨김"
+else:
+    work_scope_caption = f"전체 작업 {visible_work_count:,}건 기준"
+if stock_issue_count:
+    work_scope_caption += f" · 이 중 재고 수치 점검 필요 {stock_issue_count:,}건"
+st.caption(work_scope_caption)
 work_metrics = st.columns(4)
 work_metrics[0].metric("즉시 사용 가능", f"{ready_count}건")
 work_metrics[1].metric("원액·희석 준비", f"{preparation_count}건")

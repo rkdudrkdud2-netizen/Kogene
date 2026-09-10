@@ -162,7 +162,10 @@ def _build_summary_counts(results, worklist_records):
         (str(item.get("검증 구분", "")), str(item.get("우선순위", "")))
         for item in results
     )
-    readiness_counts = Counter(str(row.get("준비 상태", "")) for row in worklist_records)
+    representative_worklist = [
+        row for row in worklist_records if str(row.get("우선순위", "")) != "참고"
+    ]
+    readiness_counts = Counter(str(row.get("준비 상태", "")) for row in representative_worklist)
     return {
         "cards": {
             "전체 후보": len(results),
@@ -182,6 +185,8 @@ def _build_summary_counts(results, worklist_records):
             "원액·희석 준비": readiness_counts["희석 필요"] + readiness_counts["원액 사용 가능"],
             "소진·미보유": readiness_counts["소진"] + readiness_counts["미보유"],
             "정보·재고 확인": readiness_counts["정보 확인 필요"],
+            "표시 작업": len(representative_worklist),
+            "숨김 참고 작업": len(worklist_records) - len(representative_worklist),
         },
     }
 
@@ -289,6 +294,13 @@ def _add_summary_sheet(
             cell.alignment = Alignment(horizontal="center", vertical="center")
             cell.border = Border(bottom=Side(style="thin", color=LINE))
         sheet.cell(row_index, 8).fill = PatternFill("solid", fgColor=fill)
+
+    sheet["F17"] = (
+        f"※ 필수·권장 작업 {summary_counts['readiness']['표시 작업']:,}건 기준"
+        f" · 참고 {summary_counts['readiness']['숨김 참고 작업']:,}건 제외"
+    )
+    sheet["F17"].font = Font(name=FONT_NAME, size=8, color=MUTED)
+    sheet["F17"].alignment = Alignment(horizontal="left", vertical="center")
 
     for cell in sheet["A18:H19"]:
         for item in cell:

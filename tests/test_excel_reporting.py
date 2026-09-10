@@ -111,6 +111,19 @@ def test_excel_summary_values_are_saved_for_viewers_without_formula_recalculatio
     assert [summary.cell(row, 7).value for row in range(13, 17)] == [0, 0, 2, 0]
 
 
+def test_excel_readiness_summary_uses_same_required_recommended_scope_as_app_default():
+    required = _result()
+    reference = _result()
+    reference["우선순위"] = "참고"
+
+    workbook = load_workbook(BytesIO(build_excel_download([required, reference])), data_only=True)
+    summary = workbook["요약"]
+
+    assert [summary.cell(row, 7).value for row in range(13, 17)] == [0, 0, 1, 0]
+    assert "필수·권장 작업 1건 기준" in summary["F17"].value
+    assert "참고 1건 제외" in summary["F17"].value
+
+
 def test_excel_report_adds_sheet_for_dynamically_inferred_pathogen_group():
     results = [_result("발열·매개체", "바이러스")]
     workbook = load_workbook(BytesIO(build_excel_download(results)))

@@ -74,6 +74,20 @@ def test_listeria_search_renders_results_without_unrecognized_warning():
     assert any("Listeria monocytogenes" in item.value for item in app.caption)
 
 
+def test_full_strain_name_is_searchable_without_inventory():
+    app = AppTest.from_file(str(APP_PATH), default_timeout=20).run()
+    app.text_input[0].set_value("Escherichia coli ATCC 25922").run()
+
+    assert not app.exception
+    assert not any("자동 분류가 필요한" in item.value for item in app.info)
+    assert any("균주·병원체명 기반 자동 분류" in item.value for item in app.caption)
+    worklist = app.dataframe[0].value
+    target_rows = worklist.loc[worklist["추천 미생물"].eq("Escherichia coli ATCC 25922")]
+    assert not target_rows.empty
+    assert set(target_rows["질환군"]) == {"장관계"}
+    assert set(target_rows["병원체 유형"]) == {"세균"}
+
+
 def test_unregistered_pathogen_still_reaches_results_and_inventory_flow():
     app = AppTest.from_file(str(APP_PATH), default_timeout=20).run()
     app.text_input[0].set_value("Emerging pathogen X").run()

@@ -11,7 +11,12 @@ import re
 
 import pandas as pd
 
-from cross_reactivity_data import TARGET_ALIASES, TARGET_LABELS, _contains_term
+from cross_reactivity_data import (
+    CROSS_REACTIVITY_ROWS,
+    TARGET_ALIASES,
+    TARGET_LABELS,
+    _contains_term,
+)
 from inventory_matching import normalize_name, similarity_score
 
 
@@ -195,6 +200,63 @@ def _candidate_inventory_rows(inventory: pd.DataFrame):
             continue
         seen.add(identity)
         yield display, identity
+
+
+def expand_user_pathogen_rows(rows: list[dict], target_queries):
+    """일반 균주·병원체명을 분류하고 해당 증후군의 기본 후보로 확장한다.
+
+    등록 타겟/별칭에 없는 학명도 SYSTEM_RULES로 질환군을 추론할 수 있으면
+    더 이상 ``기타/미분류`` 입력으로만 남기지 않는다. 균주 식별자(ATCC,
+    KCTC 등)가 뒤에 붙어도 종명이 보존되므로 같은 규칙으로 처리된다.
+    """
+    output = [dict(item) for item in rows]
+    output_by_key = {
+        (item["system"], item["kind"], item["organism"]): item for item in output
+    }
+    classified_targets = set()
+
+    for query in target_queries:
+        target = (query or "").strip()
+        if not target:
+            continue
+        systems = infer_systems(target)
+        if not systems:
+            continue
+
+        classified_targets.add(target.casefold())
+        primary_system = _primary_system(systems)
+        for item in output:
+            if (
+                item.get("scope") == "사용자 입력"
+                and str(item.get("organism", "")).casefold() == target.casefold()
+            ):
+                item.update({
+                    "system": primary_system,
+                    "kind": infer_kind(target),
+                    "basis": "입력한 균주·병원체명을 기반으로 질환군과 병원체 유형을 자동 분류했습니다.",
+                })
+
+        for catalog_item in CROSS_REACTIVITY_ROWS:
+            if catalog_item["system"] not in systems:
+                continue
+            key = (catalog_item["system"], catalog_item["kind"], catalog_item["organism"])
+            existing = output_by_key.get(key)
+            if existing is not None:
+                existing["input_targets"] = tuple(dict.fromkeys((
+                    *existing.get("input_targets", ()), target,
+                )))
+                continue
+            copied = dict(catalog_item)
+            copied.update({
+                "scope": "증후군 확장",
+                "relation": "증후군 감별 병원체",
+                "basis": f"입력 균주가 속한 {catalog_item['system']} 질환군에서 함께 검토할 확장 후보",
+                "input_targets": (target,),
+            })
+            output.append(copied)
+            output_by_key[key] = copied
+
+    return output, classified_targets
 
 
 def augment_rows_from_inventory(rows: list[dict], target_queries, inventory: pd.DataFrame | None):

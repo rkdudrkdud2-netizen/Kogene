@@ -7,6 +7,7 @@ from specificity_engine import (
     assign_specificity_metadata,
     augment_rows_from_inventory,
     build_inclusivity_rows,
+    expand_user_pathogen_rows,
     exclude_inclusivity_from_specificity,
     infer_kind,
     infer_systems,
@@ -22,6 +23,25 @@ def _expanded(query, inventory):
     rows, _, unrecognized = select_cross_reactivity_rows_for_targets([query])
     rows, resolved = augment_rows_from_inventory(rows, [query], inventory)
     return rows, unrecognized, resolved
+
+
+def test_full_strain_name_is_classified_and_expanded_without_inventory():
+    query = "Escherichia coli ATCC 25922"
+    rows, _, unrecognized = select_cross_reactivity_rows_for_targets([query])
+
+    rows, classified = expand_user_pathogen_rows(rows, [query])
+
+    assert classified == {query.casefold()}
+    assert unrecognized == [query]
+    entered = next(item for item in rows if item["organism"] == query)
+    assert entered["system"] == "장관계"
+    assert entered["kind"] == "세균"
+    assert any(
+        item["organism"] == "Escherichia albertii"
+        and item["scope"] == "증후군 확장"
+        and item["input_targets"] == (query,)
+        for item in rows
+    )
 
 
 def test_unregistered_bacterium_gets_related_and_same_syndrome_candidates():

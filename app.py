@@ -7,7 +7,6 @@ import pandas as pd
 import streamlit as st
 
 import cross_reactivity_data
-import candidate_grouping
 import excel_reporting
 import specificity_engine
 import worklist
@@ -17,7 +16,6 @@ from inventory_matching import find_matches, normalize_name, read_inventory
 
 # 장시간 실행 중인 Streamlit 서버에서도 검색 데이터·규칙 변경을 즉시 반영한다.
 cross_reactivity_data = importlib.reload(cross_reactivity_data)
-candidate_grouping = importlib.reload(candidate_grouping)
 worklist = importlib.reload(worklist)
 excel_reporting = importlib.reload(excel_reporting)
 specificity_engine = importlib.reload(specificity_engine)
@@ -414,7 +412,7 @@ st.caption(
     "구매일은 유효기간 판정이 아니라 자원 식별 정보로만 표시합니다."
 )
 
-def render_candidate_table(group, table_key, grouped_view=True):
+def render_candidate_table(group, table_key):
     if not group:
         st.caption("현재 검색 조건에 해당하는 후보가 없습니다.")
         return
@@ -431,25 +429,16 @@ def render_candidate_table(group, table_key, grouped_view=True):
         "권장": "background-color:#fef3c7;color:#92400e;font-weight:700",
         "참고": "background-color:#f1f5f9;color:#475569;font-weight:700",
     }
-    if grouped_view:
-        grouped_rows = candidate_grouping.group_candidate_rows(group)
-        core_display = pd.DataFrame(grouped_rows)
-        core_columns = ["우선순위", "대표 병원체", "세부 후보 수", "관련 입력 표적", "보유 여부", "보유 자원 수"]
-        core_display = core_display[core_columns]
-        st.caption(f"대표 병원체 {len(core_display)}개로 세부 후보 {len(display)}개를 묶어 표시합니다.")
-    else:
-        core_columns = ["우선순위", "미생물", "관련 입력 표적", "보유 여부", "보유 자원 수", "관리번호"]
-        core_display = display[core_columns]
+    core_columns = ["우선순위", "미생물", "관련 입력 표적", "보유 여부", "보유 자원 수", "관리번호"]
+    core_display = display[core_columns]
     core_display = core_display.style.map(lambda value: priority_colors.get(value, ""), subset=["우선순위"])
     st.dataframe(
         core_display, width="stretch", hide_index=True,
-        height=min(520, 44 + (len(grouped_rows) if grouped_view else len(display)) * 35),
+        height=min(520, 44 + len(display) * 35),
         column_config={
             "우선순위": st.column_config.TextColumn(width="small"),
-            "관련 입력 표적": st.column_config.TextColumn(width="small" if grouped_view else "medium"),
+            "관련 입력 표적": st.column_config.TextColumn(width="medium"),
             "미생물": st.column_config.TextColumn(width="large"),
-            "대표 병원체": st.column_config.TextColumn(width="medium"),
-            "세부 후보 수": st.column_config.NumberColumn("세부 후보", format="%d개", width="small"),
             "관리번호": st.column_config.TextColumn("관리번호", width="medium", help="매칭된 모든 사내 자원의 관리번호"),
             "보유 자원 수": st.column_config.NumberColumn("보유 자원 수", format="%d건"),
         },
@@ -475,29 +464,15 @@ validation_tabs = st.tabs(["포괄성 목록", "특이도 목록"])
 
 with validation_tabs[0]:
     st.caption("타겟 자체와 동일 종·strain·혈청형·유전형의 검출 포괄성을 확인하는 목록입니다.")
-    inclusivity_controls = st.columns([1, 1.8])
-    with inclusivity_controls[0]:
-        show_inclusivity_reference = st.toggle("참고 후보 포함", value=False, key="show_inclusivity_reference")
-    with inclusivity_controls[1]:
-        inclusivity_view = st.segmented_control(
-            "표시 방식", ["대표 병원체 묶음", "세부 후보 전체"], default="대표 병원체 묶음",
-            key="inclusivity_view", width="stretch",
-        )
+    show_inclusivity_reference = st.toggle("참고 후보 포함", value=False, key="show_inclusivity_reference")
     visible_inclusivity = [
         item for item in inclusivity_results if show_inclusivity_reference or item.get("우선순위") != "참고"
     ]
-    render_candidate_table(visible_inclusivity, "inclusivity", inclusivity_view == "대표 병원체 묶음")
+    render_candidate_table(visible_inclusivity, "inclusivity")
 
 with validation_tabs[1]:
     st.caption("근연 비표적종과 동일 증후군·검체 범주의 병원체에 대한 교차반응·배제 확인 목록입니다.")
-    specificity_controls = st.columns([1, 1.8])
-    with specificity_controls[0]:
-        show_specificity_reference = st.toggle("참고 후보 포함", value=False, key="show_specificity_reference")
-    with specificity_controls[1]:
-        specificity_view = st.segmented_control(
-            "표시 방식", ["대표 병원체 묶음", "세부 후보 전체"], default="대표 병원체 묶음",
-            key="specificity_view", width="stretch",
-        )
+    show_specificity_reference = st.toggle("참고 후보 포함", value=False, key="show_specificity_reference")
     visible_specificity = [
         item for item in specificity_results if show_specificity_reference or item.get("우선순위") != "참고"
     ]
@@ -521,7 +496,7 @@ with validation_tabs[1]:
             render_candidate_table([
                 item for item in visible_specificity
                 if item["system"] == system and item["kind"] == kind
-            ], f"specificity_{system}_{kind}", specificity_view == "대표 병원체 묶음")
+            ], f"specificity_{system}_{kind}")
 
 st.caption("관리번호는 보유 판정을 받은 후보에 대해 모두 표시됩니다. 미보유 후보는 관리번호가 없어 ‘—’로 표시됩니다.")
 

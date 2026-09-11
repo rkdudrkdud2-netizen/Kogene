@@ -25,21 +25,15 @@ def test_crosscheck_page_renders_without_exception():
     assert len(app.download_button) == 1
 
 
-def test_representative_pathogen_view_is_default_and_can_expand_to_detail_rows():
+def test_validation_panels_show_all_detail_rows_without_view_selector():
     app = AppTest.from_file(str(APP_PATH), default_timeout=20).run()
 
     assert not app.exception
-    assert [control.value for control in app.segmented_control] == [
-        "대표 병원체 묶음", "대표 병원체 묶음",
-    ]
-    assert "대표 병원체" in app.dataframe[1].value.columns
-    assert any("세부 후보" in item.value for item in app.caption)
-
-    app.segmented_control[1].set_value("세부 후보 전체").run()
-
-    assert not app.exception
-    assert "미생물" in app.dataframe[3].value.columns
-    assert "대표 병원체" not in app.dataframe[3].value.columns
+    assert not app.segmented_control
+    candidate_tables = [table.value for table in app.dataframe[1:] if "우선순위" in table.value.columns]
+    assert candidate_tables
+    assert all("미생물" in table.columns for table in candidate_tables)
+    assert all("대표 병원체" not in table.columns for table in candidate_tables)
 
 
 def test_distribution_page_navigation_renders_without_exception():

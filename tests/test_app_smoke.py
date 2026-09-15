@@ -68,6 +68,24 @@ def test_listeria_search_renders_results_without_unrecognized_warning():
     assert any("Listeria monocytogenes" in item.value for item in app.caption)
 
 
+def test_multiplex_gene_targets_show_correct_pathogen_evidence_and_candidate_roles():
+    app = AppTest.from_file(str(APP_PATH), default_timeout=20).run()
+    app.text_input[0].set_value("invA")
+    app.text_input[1].set_value("iap")
+    app.run()
+
+    assert not app.exception
+    assert any("invA → Salmonella spp." in item.value for item in app.caption)
+    assert any("iap → Listeria spp." in item.value for item in app.caption)
+    candidate_tables = [table.value for table in app.dataframe[1:] if "검증 대상 표적" in table.value.columns]
+    assert candidate_tables
+    assert any(
+        value.endswith("(양성)")
+        for table in candidate_tables
+        for value in table["검증 대상 표적"].astype(str)
+    )
+
+
 def test_full_strain_name_is_searchable_without_inventory():
     app = AppTest.from_file(str(APP_PATH), default_timeout=20).run()
     app.text_input[0].set_value("Escherichia coli ATCC 25922").run()

@@ -103,6 +103,16 @@ def test_listeria_names_and_target_genes_are_recognized(query):
     assert all(item["system"] == "장관계" for item in rows)
 
 
+@pytest.mark.parametrize(("query", "expected"), [
+    ("invA", "invA → Salmonella spp."),
+    ("iap", "iap → Listeria spp."),
+])
+def test_evidence_backed_gene_targets_are_reported_with_the_correct_pathogen(query, expected):
+    _, interpretation, unrecognized = select_cross_reactivity_rows_for_targets([query])
+    assert not unrecognized
+    assert expected in interpretation
+
+
 def test_targets_from_both_systems_return_combined_full_panel():
     rows, interpretation = select_cross_reactivity_rows("EHEC + SARS-CoV-2 N")
     assert "장관계/호흡기계" in interpretation

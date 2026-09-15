@@ -16,6 +16,7 @@ from cross_reactivity_data import (
     TARGET_ALIASES,
     TARGET_LABELS,
     _contains_term,
+    gene_evidence_for_query,
 )
 from inventory_matching import normalize_name, similarity_score
 
@@ -167,6 +168,9 @@ def related_group(name: str) -> str:
 
 def _canonical_target(query: str) -> str:
     text = (query or "").strip().lower()
+    gene_profiles = gene_evidence_for_query(query)
+    if len(gene_profiles) == 1:
+        return gene_profiles[0]["canonical"]
     for key, aliases in TARGET_ALIASES.items():
         if any(_contains_term(text, alias) for alias in aliases):
             label = TARGET_LABELS[key]
@@ -382,6 +386,7 @@ def build_inclusivity_rows(target_queries, inventory: pd.DataFrame | None) -> li
         target = (query or "").strip()
         if not target:
             continue
+        gene_profiles = gene_evidence_for_query(target)
         canonical = _canonical_target(target)
         canonical_is_more_specific = (
             _normalized(canonical) != _normalized(target)
@@ -389,11 +394,28 @@ def build_inclusivity_rows(target_queries, inventory: pd.DataFrame | None) -> li
         )
         matched = []
         for display, identity in candidates:
+            profile_match = any(
+                any(_contains_term(_normalized(display), taxon) for taxon in profile["positive_taxa"])
+                for profile in gene_profiles
+            )
             canonical_score, _ = similarity_score(canonical, display)
             query_score, _ = similarity_score(target, display)
-            score = canonical_score if canonical_is_more_specific else max(canonical_score, query_score)
+            score = 100.0 if profile_match else (
+                canonical_score if canonical_is_more_specific else max(canonical_score, query_score)
+            )
             if score >= 97:
                 matched.append((display, identity, score))
+
+        # 유전자 입력은 업로드 재고에 없는 대표 종도 양성 포괄성 범위에
+        # 포함한다. 예: invA의 S. enterica/S. bongori, iap의 Listeria spp.
+        for catalog_item in CROSS_REACTIVITY_ROWS:
+            display = catalog_item["organism"]
+            identity = _normalized(display)
+            if any(
+                any(_contains_term(identity, taxon) for taxon in profile["positive_taxa"])
+                for profile in gene_profiles
+            ) and identity not in {item[1] for item in matched}:
+                matched.append((display, identity, 100.0))
 
         # 보유 자원이 없어도 타겟 자체는 포괄성 시험 항목으로 유지한다.
         if not matched:

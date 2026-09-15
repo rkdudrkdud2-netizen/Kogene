@@ -339,6 +339,16 @@ metrics[2].metric("특이도", f"{len(specificity_results)}종")
 metrics[3].metric("보유 후보", f"{owned_count}종")
 st.caption("대표 지표는 모두 후보 종 기준입니다. 전체 후보 = 포괄성 + 특이도이며, 보유 후보는 전체 후보 중 사내 자원이 매칭된 종입니다.")
 st.caption(f"검색 해석 · {interpretation}")
+gene_evidence = cross_reactivity_data.gene_evidence_for_queries(analysis_queries)
+if gene_evidence:
+    with st.expander("표적 유전자 분류 근거", expanded=False):
+        for evidence in gene_evidence:
+            st.markdown(
+                f"**{evidence['gene']} → {evidence['organism']}** · "
+                f"{evidence['summary']} · "
+                f"[{evidence['source']}]({evidence['url']})"
+            )
+        st.caption("유전자명만 입력한 경우의 분류입니다. 실제 종 특이성은 사용한 primer/probe 서열과 검증 결과로 확정해야 합니다.")
 if unrecognized_targets:
     st.info(
         "자동 분류가 필요한 사용자 입력 병원체: " + ", ".join(unrecognized_targets)
@@ -419,7 +429,10 @@ def render_candidate_table(group, table_key):
     display = pd.DataFrame([{
         "우선순위": item.get("우선순위", "참고"),
         "미생물": item["organism"],
-        "관련 입력 표적": " + ".join(item.get("input_targets", (target,))),
+        "검증 대상 표적": " + ".join(
+            f"{value} ({'양성' if item.get('검증 구분') == '포괄성' else '비표적'})"
+            for value in item.get("input_targets", (target,))
+        ),
         "보유 여부": item["보유 여부"], "보유 자원 수": item["보유 자원 수"],
         "관리번호": item["관리번호"], "점수": item["매칭 점수"],
         "사내 매칭명": item["사내 매칭명"], "Cat no.": item["Cat no."],
@@ -429,7 +442,7 @@ def render_candidate_table(group, table_key):
         "권장": "background-color:#fef3c7;color:#92400e;font-weight:700",
         "참고": "background-color:#f1f5f9;color:#475569;font-weight:700",
     }
-    core_columns = ["우선순위", "미생물", "관련 입력 표적", "보유 여부", "보유 자원 수", "관리번호"]
+    core_columns = ["우선순위", "미생물", "검증 대상 표적", "보유 여부", "보유 자원 수", "관리번호"]
     core_display = display[core_columns]
     core_display = core_display.style.map(lambda value: priority_colors.get(value, ""), subset=["우선순위"])
     st.dataframe(
@@ -437,7 +450,10 @@ def render_candidate_table(group, table_key):
         height=min(520, 44 + len(display) * 35),
         column_config={
             "우선순위": st.column_config.TextColumn(width="small"),
-            "관련 입력 표적": st.column_config.TextColumn(width="medium"),
+            "검증 대상 표적": st.column_config.TextColumn(
+                width="medium",
+                help="포괄성에서는 양성 검출 범위, 특이도에서는 해당 assay에 반응하지 않아야 할 비표적 후보를 뜻합니다.",
+            ),
             "미생물": st.column_config.TextColumn(width="large"),
             "관리번호": st.column_config.TextColumn("관리번호", width="medium", help="매칭된 모든 사내 자원의 관리번호"),
             "보유 자원 수": st.column_config.NumberColumn("보유 자원 수", format="%d건"),
@@ -449,7 +465,7 @@ def render_candidate_table(group, table_key):
             column_config={
                 "우선순위": st.column_config.TextColumn(width="small"),
                 "점수": st.column_config.ProgressColumn("매칭 점수", min_value=0, max_value=100, format="%.1f"),
-                "관련 입력 표적": st.column_config.TextColumn(width="medium"),
+                "검증 대상 표적": st.column_config.TextColumn(width="medium"),
                 "관리번호": st.column_config.TextColumn("관리번호", width="medium"),
                 "보유 자원 수": st.column_config.NumberColumn("보유 자원 수", format="%d건"),
                 "사내 매칭명": st.column_config.TextColumn(width="large"),
@@ -472,6 +488,7 @@ with validation_tabs[0]:
 
 with validation_tabs[1]:
     st.caption("근연 비표적종과 동일 증후군·검체 범주의 병원체에 대한 교차반응·배제 확인 목록입니다.")
+    st.caption("‘검증 대상 표적’의 (비표적)은 해당 병원체가 그 assay에서 음성이어야 한다는 뜻이며, 유전자가 그 병원체에 속한다는 의미가 아닙니다.")
     show_specificity_reference = st.toggle("참고 후보 포함", value=False, key="show_specificity_reference")
     visible_specificity = [
         item for item in specificity_results if show_specificity_reference or item.get("우선순위") != "참고"

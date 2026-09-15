@@ -56,6 +56,35 @@ TARGET_SYSTEMS = {
     "malaria": "혈액매개", "babesia": "혈액매개",
 }
 
+# 유전자명만 입력되었을 때의 병원체 범위는 검증 논문에 근거해 별도로
+# 관리한다. 같은 유전자라도 primer/probe 위치에 따라 종 특이성이 달라질
+# 수 있으므로, 서열 정보가 없는 입력은 논문이 지지하는 보수적인 양성
+# 범위(genus 수준)로 해석한다.
+TARGET_GENE_EVIDENCE = {
+    "inva": {
+        "aliases": ("inva", "inv a"),
+        "target_id": "salmonella",
+        "gene": "invA",
+        "organism": "Salmonella spp.",
+        "canonical": "Salmonella",
+        "positive_taxa": ("salmonella",),
+        "summary": "Salmonella 여러 종·아종·혈청형을 포괄하는 침입 유전자 표적",
+        "source": "Rahn et al., 1992",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/1528198/",
+    },
+    "iap": {
+        "aliases": ("iap",),
+        "target_id": "listeria",
+        "gene": "iap",
+        "organism": "Listeria spp.",
+        "canonical": "Listeria",
+        "positive_taxa": ("listeria",),
+        "summary": "Listeria 속 공통 p60 유전자이며 primer 위치에 따라 종 구분 가능",
+        "source": "Bubert et al., 1992",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC195830/",
+    },
+}
+
 if not (set(TARGET_ALIASES) == set(TARGET_LABELS) == set(TARGET_SYSTEMS)):
     raise RuntimeError("타겟 별칭, 표시명, 증후군 매핑의 키가 일치하지 않습니다.")
 
@@ -149,6 +178,28 @@ def _contains_term(text: str, term: str) -> bool:
     return lowered in text
 
 
+def gene_evidence_for_query(query: str) -> tuple[dict, ...]:
+    """입력에서 문헌으로 검증된 표적 유전자 프로필을 반환한다."""
+    text = (query or "").strip().lower()
+    return tuple(
+        profile for profile in TARGET_GENE_EVIDENCE.values()
+        if any(_contains_term(text, alias) for alias in profile["aliases"])
+    )
+
+
+def gene_evidence_for_queries(queries) -> tuple[dict, ...]:
+    """여러 입력의 유전자 근거를 중복 없이 입력 순서대로 반환한다."""
+    output = []
+    seen = set()
+    for query in queries:
+        for profile in gene_evidence_for_query(query):
+            if profile["gene"].casefold() in seen:
+                continue
+            seen.add(profile["gene"].casefold())
+            output.append(profile)
+    return tuple(output)
+
+
 def _catalog_matches(text: str):
     """등록 후보의 정식명·별칭을 타겟 검색어로도 활용한다."""
     matches = []
@@ -196,7 +247,13 @@ def select_cross_reactivity_rows(query: str):
             copied["relation"] = "증후군 감별 병원체"
             copied["basis"] = f"{item['system']} 감염 증후군에서 표적 외 동시감염·감별을 포괄하기 위한 확장 후보"
             rows.append(copied)
-        labels = ", ".join(TARGET_LABELS[key] for key in sorted(target_ids))
+        gene_profiles = gene_evidence_for_query(query)
+        if gene_profiles:
+            labels = ", ".join(
+                f"{profile['gene']} → {profile['organism']}" for profile in gene_profiles
+            )
+        else:
+            labels = ", ".join(TARGET_LABELS[key] for key in sorted(target_ids))
         interpretation = _panel_interpretation(f"표적: {labels}", target_systems)
     else:
         direct = _catalog_matches(text) if text else []

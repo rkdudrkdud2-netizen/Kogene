@@ -163,6 +163,42 @@ def test_inclusivity_contains_target_strains_but_not_other_species():
     assert all(item["검증 구분"] == "포괄성" and item["우선순위"] == "필수" for item in rows)
 
 
+def test_invA_and_iap_gene_inputs_create_genus_level_required_inclusivity_panels():
+    inventory = _inventory(
+        "Salmonella Derby",
+        "Salmonella Enteritidis",
+        "Listeria monocytogenes",
+        "Listeria innocua",
+        "Vibrio cholerae",
+    )
+    rows = build_inclusivity_rows(["invA", "iap"], inventory)
+
+    inva = [item for item in rows if item["input_targets"] == ("invA",)]
+    iap = [item for item in rows if item["input_targets"] == ("iap",)]
+    assert {item["organism"] for item in inva} >= {
+        "Salmonella Derby", "Salmonella Enteritidis", "Salmonella enterica", "Salmonella bongori",
+    }
+    assert {item["organism"] for item in iap} >= {
+        "Listeria monocytogenes", "Listeria innocua", "Listeria ivanovii",
+    }
+    assert all(item["우선순위"] == "필수" for item in rows)
+    assert not any(item["organism"] == "Vibrio cholerae" for item in rows)
+
+
+def test_gene_positive_taxa_are_not_mislabeled_as_same_gene_specificity_candidates():
+    queries = ["invA", "iap"]
+    specificity, _, _ = select_cross_reactivity_rows_for_targets(queries)
+    inclusivity = build_inclusivity_rows(queries, _inventory(
+        "Salmonella Derby", "Listeria monocytogenes", "Listeria innocua",
+    ))
+    filtered = exclude_inclusivity_from_specificity(specificity, inclusivity)
+
+    salmonella_rows = [item for item in filtered if item["organism"].startswith("Salmonella")]
+    listeria_rows = [item for item in filtered if item["organism"].startswith("Listeria")]
+    assert salmonella_rows and all(item["input_targets"] == ("iap",) for item in salmonella_rows)
+    assert listeria_rows and all(item["input_targets"] == ("invA",) for item in listeria_rows)
+
+
 def test_inclusivity_items_are_removed_only_from_same_target_specificity_rows():
     inclusivity = [{
         "organism": "Dengue virus type 3", "input_targets": ("Dengue 3",),

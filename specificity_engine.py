@@ -171,6 +171,31 @@ def _canonical_target(query: str) -> str:
     gene_profiles = gene_evidence_for_query(query)
     if len(gene_profiles) == 1:
         return gene_profiles[0]["canonical"]
+
+    # 정식명·축약명이 카탈로그의 특정 종과 일치하면 넓은 속명 alias보다
+    # 먼저 그 종을 보존한다. 예: Listeria innocua, C. jejuni.
+    catalog_matches = []
+    for item in CROSS_REACTIVITY_ROWS:
+        matched_names = [
+            name for name in (item["organism"], *item.get("aliases", ()))
+            if _contains_term(text, name)
+        ]
+        if matched_names:
+            catalog_matches.append((max(map(len, matched_names)), item["organism"]))
+    if catalog_matches:
+        return max(catalog_matches)[1]
+
+    # 카탈로그에 아직 없는 혈청형·strain 표기도 알려진 속명으로 시작하면
+    # 사용자가 입력한 상세 명칭을 유지한다. 예: Salmonella Derby.
+    normalized_query = _normalized(query)
+    known_genera = {
+        _normalized(item["organism"]).split()[0]
+        for item in CROSS_REACTIVITY_ROWS if _normalized(item["organism"])
+    }
+    query_tokens = normalized_query.split()
+    if len(query_tokens) >= 2 and query_tokens[0] in known_genera:
+        return (query or "").strip()
+
     for key, aliases in TARGET_ALIASES.items():
         if any(_contains_term(text, alias) for alias in aliases):
             label = TARGET_LABELS[key]

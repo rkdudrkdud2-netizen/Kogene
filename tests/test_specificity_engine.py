@@ -163,6 +163,25 @@ def test_inclusivity_contains_target_strains_but_not_other_species():
     assert all(item["검증 구분"] == "포괄성" and item["우선순위"] == "필수" for item in rows)
 
 
+def test_explicit_species_serovar_and_abbreviated_pathogen_names_keep_their_exact_scope():
+    inventory = _inventory(
+        "Listeria monocytogenes",
+        "Listeria innocua",
+        "Salmonella Derby",
+        "Salmonella Enteritidis",
+        "Campylobacter jejuni",
+        "Campylobacter coli",
+    )
+
+    listeria = build_inclusivity_rows(["Listeria innocua"], inventory)
+    salmonella = build_inclusivity_rows(["Salmonella Derby"], inventory)
+    campylobacter = build_inclusivity_rows(["C. jejuni"], inventory)
+
+    assert {item["organism"] for item in listeria} == {"Listeria innocua"}
+    assert {item["organism"] for item in salmonella} == {"Salmonella Derby"}
+    assert {item["organism"] for item in campylobacter} == {"Campylobacter jejuni"}
+
+
 def test_invA_and_iap_gene_inputs_create_genus_level_required_inclusivity_panels():
     inventory = _inventory(
         "Salmonella Derby",

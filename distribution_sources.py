@@ -19,11 +19,11 @@ DISTRIBUTION_SOURCES = (
         "url": "https://www.mnth.go.kr/html/content.do?depth=cr&menu_cd=04_03_02",
     },
     {
-        "name": "한국결핵자원센터",
+        "name": "대한결핵협회 결핵연구원·한국항산균자원센터",
         "acronym": "KMRC",
         "category": "국내 공공·연구은행",
-        "description": "결핵균 연구자원 및 분양 관련 안내",
-        "url": "https://knta.or.kr/kntaIntro/kntaAcademy/acDev.asp?tab=2",
+        "description": "결핵연구원과 한국항산균자원센터 운영·연구자원 안내",
+        "url": "https://www.knta.or.kr/_pages/about_us/researcher.asp",
     },
     {
         "name": "국가병원체자원은행",
@@ -37,7 +37,7 @@ DISTRIBUTION_SOURCES = (
         "acronym": "KVCC",
         "category": "국내 공공·연구은행",
         "description": "농림축산검역본부 수의 미생물·유전자원 안내",
-        "url": "https://home.kahis.go.kr/",
+        "url": "https://www.kahis.go.kr/",
     },
     {
         "name": "생물자원센터",
@@ -50,15 +50,15 @@ DISTRIBUTION_SOURCES = (
         "name": "한국미생물보존센터",
         "acronym": "KCCM",
         "category": "국내 공공·연구은행",
-        "description": "Korean Culture Center of Microorganisms 균주 검색·분양",
-        "url": "http://www.kccm.or.kr/",
+        "description": "Korean Culture Center of Microorganisms 미생물자원 검색·분양",
+        "url": "https://patent.kccm.or.kr/",
     },
     {
         "name": "국립농업과학원 미생물은행",
         "acronym": "KACC",
         "category": "국내 공공·연구은행",
         "description": "농업미생물자원 검색 및 일반·산업용 분양 안내",
-        "url": "https://genebank.rda.go.kr/distrib/distributeInfo.do",
+        "url": "https://genebank.rda.go.kr/microbeMain.do",
     },
     {
         "name": "체외진단의료기기 표준품 분양",

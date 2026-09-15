@@ -14,6 +14,10 @@ def test_verified_distribution_links_use_current_detail_pages():
     assert sources["KBPV"]["url"].endswith("menu_id=030300")
     assert sources["TB Specimen Bank"]["url"].endswith("menu_cd=04_03_02")
     assert sources["NCCP"]["url"].endswith("menu_id=010100")
+    assert sources["KMRC"]["url"].endswith("_pages/about_us/researcher.asp")
+    assert sources["KVCC"]["url"] == "https://www.kahis.go.kr/"
+    assert sources["KCCM"]["url"] == "https://patent.kccm.or.kr/"
+    assert sources["KACC"]["url"].endswith("microbeMain.do")
     assert sources["MFDS · NIFDS"]["url"].startswith("https://nifds.go.kr/")
     assert "determine-your-distributor" in sources["ATCC"]["contact_url"]
 

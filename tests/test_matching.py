@@ -93,7 +93,7 @@ def test_every_supported_target_gets_its_full_syndrome_panel(
 
 
 @pytest.mark.parametrize("query", [
-    "Listeria", "Listeria monocytogenes", "L. monocytogenes", "리스테리아", "hlyA", "prfA",
+    "Listeria", "Listeria monocytogenes", "L. monocytogenes", "리스테리아", "prfA",
 ])
 def test_listeria_names_and_target_genes_are_recognized(query):
     rows, interpretation, unrecognized = select_cross_reactivity_rows_for_targets([query])
@@ -106,11 +106,28 @@ def test_listeria_names_and_target_genes_are_recognized(query):
 @pytest.mark.parametrize(("query", "expected"), [
     ("invA", "invA → Salmonella spp."),
     ("iap", "iap → Listeria spp."),
+    ("ipaH", "ipaH → Shigella spp. / EIEC"),
+    ("ttr", "ttr → Salmonella spp."),
 ])
 def test_evidence_backed_gene_targets_are_reported_with_the_correct_pathogen(query, expected):
     _, interpretation, unrecognized = select_cross_reactivity_rows_for_targets([query])
     assert not unrecognized
     assert expected in interpretation
+
+
+@pytest.mark.parametrize("query", ["hlyA", "IS481", "RdRp", "M gene", "ORF1", "P1", "18S rRNA"])
+def test_ambiguous_bare_gene_names_are_not_assigned_to_one_pathogen(query):
+    rows, interpretation, unrecognized = select_cross_reactivity_rows_for_targets([query])
+    assert unrecognized == [query]
+    assert "자동 분류 필요" in interpretation
+    assert len(rows) == 1 and rows[0]["scope"] == "사용자 입력"
+
+
+@pytest.mark.parametrize("query", ["SARS-CoV-2 RdRp", "Influenza A M gene", "Plasmodium 18S rRNA"])
+def test_ambiguous_gene_is_safe_when_explicit_pathogen_context_is_present(query):
+    rows, _, unrecognized = select_cross_reactivity_rows_for_targets([query])
+    assert not unrecognized
+    assert len(rows) > 1
 
 
 def test_targets_from_both_systems_return_combined_full_panel():

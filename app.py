@@ -8,6 +8,7 @@ import streamlit as st
 
 import cross_reactivity_data
 import excel_reporting
+import reference_lookup
 import specificity_engine
 import worklist
 from distribution_sources import CATEGORIES, DISTRIBUTION_SOURCES, filter_distribution_sources
@@ -163,7 +164,7 @@ def render_distribution_page():
     st.subheader("기관별 분양·주문 안내")
     st.caption(
         "기관명을 검색하거나 분류를 선택하면 필요한 공급처를 빠르게 좁힐 수 있습니다. "
-        "링크와 기관 정보는 2026-08-24 기준으로 재확인했습니다."
+        "링크와 기관 정보는 2026-09-15 기준으로 전수 재확인했습니다."
     )
     if not sources:
         st.warning("현재 조건과 일치하는 분양처가 없습니다. 검색어 또는 기관 분류를 조정해 주세요.")
@@ -242,11 +243,16 @@ with st.sidebar:
             key="single_target",
         ))
     disease_queries = [value.strip() for value in target_queries if cross_reactivity_data.is_disease_query(value)]
-    analysis_queries = [
+    raw_analysis_queries = [
         value for value in target_queries
         if value.strip() and not cross_reactivity_data.is_disease_query(value)
     ]
-    target = " + ".join(value.strip() for value in analysis_queries)
+    reference_resolutions = st.session_state.get("reference_resolutions", {})
+    analysis_queries = [
+        reference_resolutions.get(value.strip().casefold(), value)
+        for value in raw_analysis_queries
+    ]
+    target = " + ".join(value.strip() for value in raw_analysis_queries)
     threshold = st.slider(
         "보유 판정 유사도", 70, 100, 86,
         help="값이 낮으면 표기 차이를 넓게 잡지만 오매칭 가능성이 커집니다.",
@@ -292,6 +298,17 @@ if disease_queries:
     st.warning(
         "질환명은 검색에서 제외했습니다: " + ", ".join(disease_queries)
         + " · 실제 균주·병원체명 또는 표적 유전자를 입력해 주세요."
+    )
+
+active_reference_resolutions = {
+    original.strip(): reference_resolutions[original.strip().casefold()]
+    for original in raw_analysis_queries
+    if original.strip().casefold() in reference_resolutions
+}
+if active_reference_resolutions:
+    st.success(
+        "PubMed 근거 분류 적용 · "
+        + ", ".join(f"{source} → {resolved}" for source, resolved in active_reference_resolutions.items())
     )
 
 specificity_rows, interpretation, unrecognized_targets = cross_reactivity_data.select_cross_reactivity_rows_for_targets(analysis_queries)
@@ -349,11 +366,52 @@ if gene_evidence:
                 f"[{evidence['source']}]({evidence['url']})"
             )
         st.caption("유전자명만 입력한 경우의 분류입니다. 실제 종 특이성은 사용한 primer/probe 서열과 검증 결과로 확정해야 합니다.")
+ambiguous_gene_evidence = []
+for original_query in raw_analysis_queries:
+    if original_query.strip().casefold() in reference_resolutions:
+        continue
+    # 병원체명이 함께 들어오면 병원체 맥락으로 분류하므로 경고하지 않는다.
+    rows_for_context, _ = cross_reactivity_data.select_cross_reactivity_rows(original_query)
+    has_known_context = any(row.get("scope") != "사용자 입력" for row in rows_for_context)
+    if not has_known_context:
+        ambiguous_gene_evidence.extend(
+            (original_query, profile)
+            for profile in cross_reactivity_data.ambiguous_gene_evidence_for_query(original_query)
+        )
+if ambiguous_gene_evidence:
+    st.warning(
+        "단독으로 병원체를 확정할 수 없는 표적 · "
+        + ", ".join(f"{query} ({profile['summary']})" for query, profile in ambiguous_gene_evidence)
+        + " · 병원체명 또는 primer/probe 서열을 함께 입력하거나 아래 PubMed 검색 결과를 확인해 주세요."
+    )
 if unrecognized_targets:
     st.info(
-        "자동 분류가 필요한 사용자 입력 병원체: " + ", ".join(unrecognized_targets)
-        + " · 검색과 사내 자원 대조에는 포함했습니다. 분류와 교차반응 후보는 검토 후 보완해 주세요."
+        "근거 확인이 필요한 입력: " + ", ".join(unrecognized_targets)
+        + " · 현재는 임의로 병원체를 단정하지 않습니다. PubMed 문헌 검색에서 여러 논문이 한 병원체군을 지지할 때만 자동 반영합니다."
     )
+    lookup_results = st.session_state.setdefault("reference_lookup_results", {})
+    for unresolved in unrecognized_targets:
+        if st.button(f"PubMed 근거 검색 · {unresolved}", key=f"pubmed_lookup_{unresolved}"):
+            with st.spinner(f"PubMed에서 {unresolved} 근거를 확인하는 중입니다..."):
+                result = reference_lookup.search_pubmed_target(unresolved)
+            lookup_results[unresolved.casefold()] = result
+            if result.get("status") == "resolved":
+                st.session_state.setdefault("reference_resolutions", {})[unresolved.casefold()] = result["organism"]
+                st.rerun()
+        lookup = lookup_results.get(unresolved.casefold())
+        if lookup:
+            if lookup.get("status") == "resolved":
+                st.success(f"{unresolved} → {lookup['organism']} · 독립 문헌 {lookup['support_count']}건에서 확인")
+            elif lookup.get("status") == "error":
+                st.error("PubMed 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.")
+            else:
+                st.warning("한 병원체로 확정할 만큼 근거가 모이지 않아 자동 분류하지 않았습니다.")
+            articles = lookup.get("articles", [])[:5]
+            if articles:
+                with st.expander(f"{unresolved} · 검색된 문헌 보기", expanded=False):
+                    for article in articles:
+                        st.markdown(f"- [{article['title']}]({article['url']})")
+                    st.markdown(f"[PubMed 전체 검색 결과]({lookup['search_url']})")
 if direct_count or expanded_count:
     st.caption(f"패널 구성 · 표적 직접 연관 {direct_count}종 + 같은 증후군 확장 {expanded_count}종")
 if inventory_related_count or inventory_syndrome_count:

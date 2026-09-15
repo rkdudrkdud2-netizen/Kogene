@@ -10,26 +10,26 @@ import re
 
 
 TARGET_ALIASES = {
-    "stec": ("stec", "ehec", "stx1", "stx2", "shiga toxin", "시가독소", "장출혈성 대장균",
+    "stec": ("stec", "ehec", "shiga toxin", "시가독소", "장출혈성 대장균",
              "escherichia coli o157", "e. coli o157", "e coli o157"),
-    "shigella": ("shigella", "ipah", "이질균", "세균성 이질"),
-    "salmonella": ("salmonella", "inva", "ttr", "살모넬라"),
+    "shigella": ("shigella", "이질균", "세균성 이질"),
+    "salmonella": ("salmonella", "살모넬라"),
     "campylobacter": ("campylobacter", "campylobacter jejuni", "c. jejuni", "c jejuni",
-                       "mapa", "cadf", "캄필로박터"),
+                       "캄필로박터"),
     "c_difficile": ("clostridioides difficile", "clostridium difficile", "c. difficile", "c difficile",
-                     "tcda", "tcdb", "cdiff", "클로스트리디오이데스"),
+                     "cdiff", "클로스트리디오이데스"),
     "listeria": ("listeria monocytogenes", "l. monocytogenes", "l monocytogenes",
-                  "listeria", "hlya", "prfa", "iap", "리스테리아 모노사이토제네스",
+                  "listeria", "리스테리아 모노사이토제네스",
                   "리스테리아"),
-    "norovirus": ("norovirus", "noro", "orf1", "orf2", "노로바이러스"),
-    "rotavirus": ("rotavirus", "nsp3", "vp6", "로타바이러스"),
-    "sars_cov_2": ("sars-cov-2", "sars cov 2", "covid", "2019-ncov", "rdrp", "코로나19"),
-    "influenza": ("influenza", "matrix gene", "m gene", "인플루엔자", "독감"),
+    "norovirus": ("norovirus", "noro", "노로바이러스"),
+    "rotavirus": ("rotavirus", "로타바이러스"),
+    "sars_cov_2": ("sars-cov-2", "sars cov 2", "covid", "2019-ncov", "코로나19"),
+    "influenza": ("influenza", "인플루엔자", "독감"),
     "rsv": ("respiratory syncytial", "rsv", "호흡기세포융합"),
-    "pertussis": ("bordetella pertussis", "b. pertussis", "b pertussis", "is481", "ptxs1", "백일해"),
+    "pertussis": ("bordetella pertussis", "b. pertussis", "b pertussis", "백일해"),
     "m_pneumoniae": ("mycoplasma pneumoniae", "m. pneumoniae", "m pneumoniae",
-                      "p1", "마이코플라스마 폐렴"),
-    "malaria": ("plasmodium", "18s rrna", "plasmodium falciparum",
+                      "마이코플라스마 폐렴"),
+    "malaria": ("plasmodium", "plasmodium falciparum",
                 "p. falciparum", "plasmodium vivax", "p. vivax", "plasmodium malariae",
                 "p. malariae", "plasmodium ovale", "p. ovale", "plasmodium knowlesi", "p. knowlesi"),
     "babesia": ("babesia", "babesiosis", "바베시아", "바베시아증", "babesia microti",
@@ -61,6 +61,27 @@ TARGET_SYSTEMS = {
 # 수 있으므로, 서열 정보가 없는 입력은 논문이 지지하는 보수적인 양성
 # 범위(genus 수준)로 해석한다.
 TARGET_GENE_EVIDENCE = {
+    "stx1": {
+        "aliases": ("stx1", "stx 1"), "target_id": "stec", "gene": "stx1",
+        "organism": "STEC/EHEC", "canonical": "STEC/EHEC",
+        "positive_taxa": ("stec", "ehec", "escherichia coli o157"), "auto_classify": True,
+        "summary": "Shiga toxin-producing E. coli의 독소 유전자 표적",
+        "source": "Perelle et al., 2004", "url": "https://pubmed.ncbi.nlm.nih.gov/16271448/",
+    },
+    "stx2": {
+        "aliases": ("stx2", "stx 2"), "target_id": "stec", "gene": "stx2",
+        "organism": "STEC/EHEC", "canonical": "STEC/EHEC",
+        "positive_taxa": ("stec", "ehec", "escherichia coli o157"), "auto_classify": True,
+        "summary": "Shiga toxin-producing E. coli의 독소 유전자 표적",
+        "source": "Perelle et al., 2004", "url": "https://pubmed.ncbi.nlm.nih.gov/16271448/",
+    },
+    "ipah": {
+        "aliases": ("ipah", "ipa h"), "target_id": "shigella", "gene": "ipaH",
+        "organism": "Shigella spp. / EIEC", "canonical": "Shigella/EIEC",
+        "positive_taxa": ("shigella", "enteroinvasive escherichia coli", "eiec"), "auto_classify": True,
+        "summary": "Shigella와 장침입성 대장균(EIEC)에 존재하여 둘을 단독으로 구분하지 못함",
+        "source": "Vu et al., 2004", "url": "https://pubmed.ncbi.nlm.nih.gov/15583323/",
+    },
     "inva": {
         "aliases": ("inva", "inv a"),
         "target_id": "salmonella",
@@ -68,9 +89,45 @@ TARGET_GENE_EVIDENCE = {
         "organism": "Salmonella spp.",
         "canonical": "Salmonella",
         "positive_taxa": ("salmonella",),
+        "auto_classify": True,
         "summary": "Salmonella 여러 종·아종·혈청형을 포괄하는 침입 유전자 표적",
         "source": "Rahn et al., 1992",
         "url": "https://pubmed.ncbi.nlm.nih.gov/1528198/",
+    },
+    "ttr": {
+        "aliases": ("ttr", "ttrrsbca"), "target_id": "salmonella", "gene": "ttr",
+        "organism": "Salmonella spp.", "canonical": "Salmonella",
+        "positive_taxa": ("salmonella",), "auto_classify": True,
+        "summary": "Salmonella의 tetrathionate respiration 유전자좌를 이용한 검출 표적",
+        "source": "Malorny et al., 2004", "url": "https://pubmed.ncbi.nlm.nih.gov/15574899/",
+    },
+    "mapa": {
+        "aliases": ("mapa", "map a"), "target_id": "campylobacter", "gene": "mapA",
+        "organism": "Campylobacter jejuni", "canonical": "Campylobacter jejuni",
+        "positive_taxa": ("campylobacter jejuni",), "auto_classify": True,
+        "summary": "C. jejuni 동정에 사용되는 membrane-associated protein 표적",
+        "source": "Stucki et al., 1995", "url": "https://pubmed.ncbi.nlm.nih.gov/7790451/",
+    },
+    "cadf": {
+        "aliases": ("cadf", "cad f"), "target_id": "campylobacter", "gene": "cadF",
+        "organism": "Campylobacter spp.", "canonical": "Campylobacter",
+        "positive_taxa": ("campylobacter",), "auto_classify": True,
+        "summary": "Campylobacter 부착 유전자이며 primer에 따라 C. jejuni/C. coli 범위가 달라짐",
+        "source": "Nayak et al., 2016", "url": "https://pubmed.ncbi.nlm.nih.gov/27127589/",
+    },
+    "tcda": {
+        "aliases": ("tcda", "tcd a"), "target_id": "c_difficile", "gene": "tcdA",
+        "organism": "toxigenic C. difficile", "canonical": "Clostridioides difficile",
+        "positive_taxa": ("clostridioides difficile", "clostridium difficile"), "auto_classify": True,
+        "summary": "독소 A 유전자로 독소생성 C. difficile 판별에 사용",
+        "source": "Belanger et al., 2003", "url": "https://pubmed.ncbi.nlm.nih.gov/12574274/",
+    },
+    "tcdb": {
+        "aliases": ("tcdb", "tcd b"), "target_id": "c_difficile", "gene": "tcdB",
+        "organism": "toxigenic C. difficile", "canonical": "Clostridioides difficile",
+        "positive_taxa": ("clostridioides difficile", "clostridium difficile"), "auto_classify": True,
+        "summary": "독소 B 유전자로 독소생성 C. difficile 판별에 사용",
+        "source": "Belanger et al., 2003", "url": "https://pubmed.ncbi.nlm.nih.gov/12574274/",
     },
     "iap": {
         "aliases": ("iap",),
@@ -79,10 +136,51 @@ TARGET_GENE_EVIDENCE = {
         "organism": "Listeria spp.",
         "canonical": "Listeria",
         "positive_taxa": ("listeria",),
+        "auto_classify": True,
         "summary": "Listeria 속 공통 p60 유전자이며 primer 위치에 따라 종 구분 가능",
         "source": "Bubert et al., 1992",
         "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC195830/",
     },
+    "prfa": {
+        "aliases": ("prfa", "prf a"), "target_id": "listeria", "gene": "prfA",
+        "organism": "Listeria monocytogenes", "canonical": "Listeria monocytogenes",
+        "positive_taxa": ("listeria monocytogenes",), "auto_classify": True,
+        "summary": "L. monocytogenes 검출용 병원성 조절 유전자 표적",
+        "source": "Rossmanith et al., 2006", "url": "https://pubmed.ncbi.nlm.nih.gov/16814987/",
+    },
+    "nsp3": {
+        "aliases": ("nsp3", "nsp 3"), "target_id": "rotavirus", "gene": "NSP3",
+        "organism": "Rotavirus A", "canonical": "Rotavirus A",
+        "positive_taxa": ("rotavirus a",), "auto_classify": True,
+        "summary": "사람 Rotavirus A 정량 RT-PCR에 검증된 표적",
+        "source": "Pang et al., 2004", "url": "https://pubmed.ncbi.nlm.nih.gov/14748075/",
+    },
+    "vp6": {
+        "aliases": ("vp6", "vp 6"), "target_id": "rotavirus", "gene": "VP6",
+        "organism": "Rotavirus spp.", "canonical": "Rotavirus",
+        "positive_taxa": ("rotavirus",), "auto_classify": True,
+        "summary": "Rotavirus group/species 검출에 사용되며 assay 설계에 따라 범위가 달라짐",
+        "source": "Joshi et al., 2019", "url": "https://pubmed.ncbi.nlm.nih.gov/30710566/",
+    },
+    "ptxs1": {
+        "aliases": ("ptxs1", "ptx s1"), "target_id": "pertussis", "gene": "ptxS1",
+        "organism": "Bordetella pertussis", "canonical": "Bordetella pertussis",
+        "positive_taxa": ("bordetella pertussis",), "auto_classify": True,
+        "summary": "다중 표적 PCR에서 B. pertussis 확인 표적으로 사용",
+        "source": "Tatti et al., 2011", "url": "https://pubmed.ncbi.nlm.nih.gov/24131698/",
+    },
+}
+
+# 아래 표적명은 여러 병원체·생물군에서 쓰이거나 primer 위치에 따라 범위가
+# 크게 달라 단독 입력만으로는 안전하게 분류하지 않는다.
+AMBIGUOUS_GENE_EVIDENCE = {
+    "hlya": {"aliases": ("hlya", "hly a"), "gene": "hlyA", "summary": "여러 세균의 hemolysin 유전자명으로 사용됨"},
+    "is481": {"aliases": ("is481", "is 481"), "gene": "IS481", "summary": "B. pertussis뿐 아니라 B. holmesii 등에서도 검출 가능"},
+    "rdrp": {"aliases": ("rdrp", "rna dependent rna polymerase"), "gene": "RdRp", "summary": "다양한 RNA 바이러스가 공유하는 중합효소 표적"},
+    "matrix": {"aliases": ("matrix gene", "m gene"), "gene": "M gene", "summary": "여러 바이러스의 matrix 유전자에 쓰이는 일반명"},
+    "orf": {"aliases": ("orf1", "orf2", "orf 1", "orf 2"), "gene": "ORF1/ORF2", "summary": "다양한 병원체에서 쓰이는 일반 ORF 명칭"},
+    "p1": {"aliases": ("p1", "p1 gene"), "gene": "P1", "summary": "여러 생물에서 쓰이는 짧고 비고유한 유전자명"},
+    "18s": {"aliases": ("18s rrna", "18s rRNA", "18s"), "gene": "18S rRNA", "summary": "진핵생물 전반에 존재하며 primer 서열로 범위가 결정됨"},
 }
 
 if not (set(TARGET_ALIASES) == set(TARGET_LABELS) == set(TARGET_SYSTEMS)):
@@ -200,6 +298,15 @@ def gene_evidence_for_queries(queries) -> tuple[dict, ...]:
     return tuple(output)
 
 
+def ambiguous_gene_evidence_for_query(query: str) -> tuple[dict, ...]:
+    """병원체 맥락 없이 자동 분류하면 위험한 일반 표적명을 반환한다."""
+    text = (query or "").strip().lower()
+    return tuple(
+        profile for profile in AMBIGUOUS_GENE_EVIDENCE.values()
+        if any(_contains_term(text, alias) for alias in profile["aliases"])
+    )
+
+
 def _catalog_matches(text: str):
     """등록 후보의 정식명·별칭을 타겟 검색어로도 활용한다."""
     matches = []
@@ -230,6 +337,8 @@ def select_cross_reactivity_rows(query: str):
     if is_disease_query(query):
         return [], "질환명은 검색 대상이 아닙니다. 실제 균주·병원체명 또는 표적 유전자를 입력해 주세요."
     target_ids = {key for key, aliases in TARGET_ALIASES.items() if any(_contains_term(text, alias) for alias in aliases)}
+    gene_profiles = gene_evidence_for_query(query)
+    target_ids.update(profile["target_id"] for profile in gene_profiles if profile.get("auto_classify"))
 
     if target_ids:
         target_systems = {TARGET_SYSTEMS[key] for key in target_ids}
@@ -247,7 +356,6 @@ def select_cross_reactivity_rows(query: str):
             copied["relation"] = "증후군 감별 병원체"
             copied["basis"] = f"{item['system']} 감염 증후군에서 표적 외 동시감염·감별을 포괄하기 위한 확장 후보"
             rows.append(copied)
-        gene_profiles = gene_evidence_for_query(query)
         if gene_profiles:
             labels = ", ".join(
                 f"{profile['gene']} → {profile['organism']}" for profile in gene_profiles

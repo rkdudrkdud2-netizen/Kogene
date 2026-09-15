@@ -106,7 +106,7 @@ def test_unregistered_pathogen_still_reaches_results_and_inventory_flow():
 
     assert not app.exception
     assert app.metric[1].value == "1종"
-    assert any("검색과 사내 자원 대조에는 포함했습니다" in item.value for item in app.info)
+    assert any("현재는 임의로 병원체를 단정하지 않습니다" in item.value for item in app.info)
     worklist = app.dataframe[0].value
     assert worklist.iloc[0]["추천 미생물"] == "Emerging pathogen X"
 
